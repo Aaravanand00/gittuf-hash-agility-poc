@@ -1,6 +1,6 @@
 # gittuf GAP-1 (Hash Agility) Proof of Concept
 
-**Authors:** Aarav Anand, Aashish Pandit, Aastha Priya  
+**Authors:** Aashish Pandit (GitHub: @imshubham22apr-gif), Aarav Anand, Aastha Priya  
 **Date:** September 2026  
 **Context:** Empirical evaluation of Git SHA-1 -> SHA-256 migration strategies in gittuf for maintainers (Paulo Gomes, Patrick Zielinski).  
 **Issue Tracking:** [gittuf/gittuf#104](https://github.com/gittuf/gittuf/issues/104) | [GAP-1 Specification](https://github.com/gittuf/gittuf/blob/main/docs/gaps/1/README.md)

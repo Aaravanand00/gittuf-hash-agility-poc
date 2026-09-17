@@ -1,7 +1,7 @@
 # OJT First Month Milestone: Learning, Progress & Project Development Report
 
 **Trainee Names:** Aashish Pandit, Aarav Anand, Aastha Priya  
-**GitHub Username:** [imshubham22apr-gif](https://github.com/imshubham22apr-gif)  
+**GitHub Username (Aashish Pandit):** [imshubham22apr-gif](https://github.com/imshubham22apr-gif)  
 **Assigned Project Track:** Open Source Software Supply Chain Security & Cryptographic Agility  
 **Project:** [gittuf](https://github.com/gittuf/gittuf) (Linux Foundation / OpenSSF)  
 **Evaluation Period:** 16th August 2026 – 15th September 2026  
