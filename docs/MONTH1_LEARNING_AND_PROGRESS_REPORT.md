@@ -1,6 +1,6 @@
 # OJT First Month Milestone: Learning, Progress & Project Development Report
 
-**Trainee Name:** Shubham Chauhan  
+**Trainee Name:** Aashish Pandit  
 **GitHub Username:** [imshubham22apr-gif](https://github.com/imshubham22apr-gif)  
 **Assigned Project Track:** Open Source Software Supply Chain Security & Cryptographic Agility  
 **Project:** [gittuf](https://github.com/gittuf/gittuf) (Linux Foundation / OpenSSF)  
