@@ -1,0 +1,10 @@
+# Keys and runtime dirs — never commit
+keys/
+work/
+archives/
+
+# Environment and OS artifacts
+*.exe
+*.test
+.DS_Store
+Thumbs.db
