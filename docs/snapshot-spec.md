@@ -1,92 +1,98 @@
-# Canonical Specification: Pre-Migration Snapshot & Merkle Tree Hash Formula
+# Canonical Specification: Pre-Migration Snapshot & OID-Only Commitment Formula
 
-**Version:** 1.0.0 (GAP-1 Extended PoC)  
-**Status:** Canonical Draft  
-**Purpose:** Resolves Gap #3 by defining an unambiguous, deterministic, language-agnostic hash formula for `gittuf` pre-migration repository state snapshots.
-
----
-
-## 1. Overview
-
-During a Git repository migration from SHA-1 to SHA-256, `gittuf` preserves historical signature continuity by creating a frozen snapshot of all pre-migration reference tips ($T_{\text{migrate}}$). 
-
-To ensure $O(1)$ fixed payload size (32 bytes) and complete verification reproducibility across different implementations (Go, Rust, Python, Shell), this specification mandates the exact canonical line format, sorting rules, leaf hashing, and pairwise Merkle tree reduction algorithm.
+**Version:** 1.1.0 (GAP-1 Extended PoC)  
+**Status:** Canonical Specification  
+**Purpose:** Resolves Gap #3 by defining an unambiguous, deterministic, privacy-safe, language-agnostic hash formula for `gittuf` pre-migration repository state snapshots.
 
 ---
 
-## 2. Canonical Serialization Rules
+## 1. Overview & Security Goals
 
-### 2.1 Ref Tip Tuples
-For every reference tip in the pre-migration SHA-1 repository (e.g., `refs/heads/*`, `refs/tags/*`), a 3-tuple is captured:
-1. `ref_name` (`string`): Full reference name (e.g., `refs/heads/main`).
-2. `sha1_target` (`string`): 40-character lowercase hexadecimal SHA-1 commit/tag ID.
-3. `sha256_target` (`string`): 64-character lowercase hexadecimal SHA-256 translated commit/tag ID.
+During a Git repository migration from SHA-1 to SHA-256, `gittuf` preserves historical signature and policy continuity by freezing the legacy repository state at an epoch boundary.
 
-### 2.2 Canonical Ordering
-All 3-tuples **MUST** be sorted in strictly ascending lexicographical order by byte value of `ref_name` (C-locale ASCII order).
+To anchor this frozen state without introducing external transparency log dependencies (e.g., Rekor), the maintainer computes an **OID-Only Commitment**:
+1. **Privacy-Safe (No Reference Names):** Does not expose internal branch or tag naming schemes in the commitment payload.
+2. **Deterministic & Language-Agnostic:** Any verifier using Git, Go, Rust, Python, or standard POSIX shell tools produces byte-for-byte identical output.
+3. **Cryptographically Bound:** Anchors content tips, RSL log state, active policy state, and root key identity.
 
-### 2.3 Canonical Line String Encoding
-Each sorted tuple $i$ is formatted into a UTF-8 string using colon separator (`:`):
+---
 
-$$\text{CanonicalLine}_i = \text{ref\_name}_i \mathbin{\Vert} \text{":"} \mathbin{\Vert} \text{sha1\_target}_i \mathbin{\Vert} \text{":"} \mathbin{\Vert} \text{sha256\_target}_i$$
+## 2. Canonical Inputs
 
-*Example:*
+The commitment set $S$ contains the following items:
+1. **Migrated Branch and Tag Tips:** The Git object IDs (OIDs) of all heads and tags present at the freeze boundary (`git show-ref --heads --tags | awk '{print $1}'`).
+2. **RSL Tip OID:** The Git object ID of the latest entry on the Reference State Log (`git rev-parse refs/gittuf/reference-state-log`).
+3. **Policy OID:** The Git object ID of the active policy state (`git rev-parse refs/gittuf/policy`).
+4. **Root Key Fingerprint:** The standard OpenSSH public key SHA-256 fingerprint of the legacy root of trust key (`ssh-keygen -l -f keys/root.pub | awk '{print $2}'`, formatted as `SHA256:<base64_hash>`).
+
+---
+
+## 3. Serialization & Sorting Rules
+
+1. **Item Formatting:**
+   - Git OIDs MUST be represented as lowercase 40-character hexadecimal strings.
+   - The Root Key Fingerprint MUST retain its exact OpenSSH representation: prefix `SHA256:` followed by standard unpadded base64.
+2. **Deduplication:** Any duplicate entries MUST be removed.
+3. **Canonical Sorting Order:**
+   - All entries MUST be sorted in strictly ascending lexicographical order based on raw byte values (POSIX C-locale / ASCII byte order).
+   - In shell implementations: `LC_ALL=C sort -u`.
+4. **Encoding & Delimiters:**
+   - Plain UTF-8 encoded text.
+   - Each item MUST be terminated by a single Unix newline character (`\n`, `0x0A`).
+   - No carriage returns (`\r`, `0x0D`) are permitted.
+
+*Example sorted commitment payload (`work/oid-commitment.txt`):*
 ```
-refs/heads/feature/auth:a1b2c3d4e5f60718293041526374859607182930:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-refs/heads/main:1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b:8f4e3c2b1a0d9e8f7c6b5a4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f
+5a7fea3522fbef360e922164f27739d9a6195767
+SHA256:3IKLsLQeQ3fM+zR3++q7ZX7mCuUt6vttO1jm0/LUUF0
+a89bb1da5f74415ebb7a543377484159ef868ed1
+d2811b27ad214ca726979c6cfa4c8531f835e656
+e02537180f5c17c7c32542ce643cb953a660d67d
 ```
 
 ---
 
-## 3. Merkle Tree Hash Calculation Algorithm
+## 4. Hash Computation Formula
 
-### 3.1 Leaf Node Hash
-For each canonical line string $i$, compute the leaf digest using SHA-256:
+The commitment hash is the single-pass SHA-256 digest over the canonical byte stream:
 
-$$H_{\text{leaf}, i} = \text{SHA-256}(\text{UTF-8-BYTES}(\text{CanonicalLine}_i))$$
+$$\text{CommitmentSHA256} = \text{SHA-256}\left(\text{UTF-8-BYTES}\left(\text{Line}_1 \mathbin{\Vert} \text{"\n"} \mathbin{\Vert} \dots \mathbin{\Vert} \text{Line}_n \mathbin{\Vert} \text{"\n"}\right)\right)$$
 
-### 3.2 Tree Layer Pairwise Hashing
-Let the current layer of nodes be $N_0, N_1, \dots, N_{k-1}$.
-While $k > 1$:
-1. Pair adjacent nodes $(N_{2j}, N_{2j+1})$.
-2. If the number of nodes $k$ is **odd**, duplicate the last node $N_{k-1}$ as its own right sibling.
-3. Compute parent node:
-   $$P_j = \text{SHA-256}(N_{2j} \mathbin{\Vert} N_{2j+1})$$
-4. Set the new layer as $P_0, P_1, \dots$ and repeat.
-
-The final remaining single 32-byte hash is the **`PreMigrationMerkleRoot`**.
+The resulting 32-byte digest MUST be formatted as a 64-character lowercase hexadecimal string.
 
 ---
 
-## 4. `snapshot-manifest.json` Schema
+## 5. `snapshot-manifest.json` Schema
 
-The `SnapshotManifest` records the repository freeze state without requiring external transparency log (Rekor) services:
+The commitment hash, metadata, and repository archive fingerprint are serialized to `archives/snapshot-manifest.json`:
 
 ```json
 {
-  "version": "1.0.0",
-  "sha1RepoID": "old-repo-archive-v1",
-  "freezeTimestamp": "2026-09-17T03:48:00Z",
-  "preMigrationMerkleRoot": "64_char_hex_sha256_merkle_root",
-  "totalRefTips": 10000,
-  "canonicalRefTips": [
-    {
-      "refName": "refs/heads/main",
-      "sha1Target": "40_char_hex",
-      "sha256Target": "64_char_hex"
-    }
-  ],
-  "signerPublicKeyHex": "ed25519_pubkey_hex",
-  "signatureHex": "ed25519_signature_over_canonical_payload"
+  "schema_version": "gap1-poc-v1",
+  "frozen_at": "2026-09-17T01:24:14Z",
+  "sha1_repo_head": "e02537180f5c17c7c32542ce643cb953a660d67d",
+  "rsl_tip": "5a7fea3522fbef360e922164f27739d9a6195767",
+  "policy_oid": "a89bb1da5f74415ebb7a543377484159ef868ed1",
+  "bundle_sha256": "acfc8520deb282871c637b509aee40a165e9a9054f0820398b0ac20547993c0d",
+  "commitment_sha256": "bc9c9ecfb5c61e8dcdf52c0010f2ddce33a4382c9df8ebd4a1cf723719255dee",
+  "root_key_fingerprint": "SHA256:3IKLsLQeQ3fM+zR3++q7ZX7mCuUt6vttO1jm0/LUUF0"
 }
 ```
 
 ---
 
-## 5. Genesis Entry Binding Formula
+## 6. Root Key Signature & Optional RFC 3161 Timestamp
 
-To cryptographically bind the `SnapshotManifest` to the new SHA-256 RSL chain (resolving Gap #2), the initial RSL entry in the SHA-256 repository MUST encode the canonical string:
-
-$$\text{GenesisPayload} = \text{"GAP1-GENESIS-ATTESTATION|Merkle:"} \mathbin{\Vert} \text{PreMigrationMerkleRoot} \mathbin{\Vert} \text{"|Archive:"} \mathbin{\Vert} \text{sha1RepoID} \mathbin{\Vert} \text{"|Policy:"} \mathbin{\Vert} \text{SHA256InitialPolicyRoot}$$
-
-This payload MUST be signed by the historical SHA-1 Root Keys prior to RSL log initialization.
+1. **Digital Signature:**
+   - The manifest file is signed with the legacy Root SSH key using OpenSSH file signing:
+     ```bash
+     ssh-keygen -Y sign -f keys/root -n file archives/snapshot-manifest.json
+     ```
+   - Produces `archives/snapshot-manifest.json.sig`.
+2. **Signature Verification:**
+   - Verifiers validate the signature using the root public key in an `allowed_signers` file:
+     ```bash
+     ssh-keygen -Y verify -f allowed_signers -I root-key -n file -s archives/snapshot-manifest.json.sig < archives/snapshot-manifest.json
+     ```
+3. **External Proof of Time (RFC 3161):**
+   - An optional timestamp token (`archives/snapshot-manifest.tsr`) may be acquired from a public Time Stamping Authority (e.g., freetsa.org) to establish a trusted freeze time without relying on a centralized transparency log.
