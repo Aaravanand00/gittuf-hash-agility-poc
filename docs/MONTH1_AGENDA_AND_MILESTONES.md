@@ -2,7 +2,7 @@
 
 **Project Track:** Open Source Software Supply Chain Security & Cryptographic Agility  
 **Project:** [gittuf](https://github.com/gittuf/gittuf) (Linux Foundation / OpenSSF)  
-**Trainee / Contributor:** Aashish Pandit (imshubham22apr-gif)  
+**Trainees / Contributors:** Aashish Pandit (imshubham22apr-gif), Aarav Anand, Aastha Priya  
 **Evaluation Period:** 16th August 2026 – 15th September 2026 (First Month)  
 **Submission Deadline:** 16th September 2026  
 
