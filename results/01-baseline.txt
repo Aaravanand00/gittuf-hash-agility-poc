@@ -1,0 +1,202 @@
+======================================================================
+ PHASE 0: SETUP BASELINE SHA-1 REPOSITORY & GITTUF POLICY
+ Date: 2026-09-17T00:45:09Z
+======================================================================
+
+=== Step 1: Generating Ed25519 Keys in keys/ ===
+Keys generated successfully in keys/.
+----------------------------------------------------------------------
+=== Step 2: Initializing SHA-1 Repository in work/old-repo ===
+[CMD] Git Init (SHA-1): git init -b main
+Initialized empty Git repository in C:/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/work/old-repo/.git/
+EXIT: 0
+----------------------------------------------------------------------
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+[CMD] Commit 1: git commit -m Initial commit
+[main (root-commit) 3523d9d] Initial commit
+ 1 file changed, 1 insertion(+)
+ create mode 100644 README.md
+EXIT: 0
+----------------------------------------------------------------------
+warning: in the working copy of 'feature_a.txt', LF will be replaced by CRLF the next time Git touches it
+[CMD] Commit 2: git commit -m Add feature A
+[main b4d740c] Add feature A
+ 1 file changed, 1 insertion(+)
+ create mode 100644 feature_a.txt
+EXIT: 0
+----------------------------------------------------------------------
+warning: in the working copy of 'feature_b.txt', LF will be replaced by CRLF the next time Git touches it
+[CMD] Commit 3: git commit -m Add feature B
+[main 42eb8e6] Add feature B
+ 1 file changed, 1 insertion(+)
+ create mode 100644 feature_b.txt
+EXIT: 0
+----------------------------------------------------------------------
+[CMD] Annotated Tag v1.0.0: git tag -a v1.0.0 -m Release version 1.0.0
+EXIT: 0
+----------------------------------------------------------------------
+=== Step 3: Initializing gittuf Root of Trust & Policies ===
+[CMD] gittuf trust init: /c/Users/explo/Desktop/gittuf/gittuf.exe trust init -k /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/keys/root --create-rsl-entry
+EXIT: 0
+----------------------------------------------------------------------
+[CMD] gittuf trust add-policy-key: /c/Users/explo/Desktop/gittuf/gittuf.exe trust add-policy-key -k /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/keys/root --policy-key /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/keys/policy.pub --create-rsl-entry
+EXIT: 0
+----------------------------------------------------------------------
+[CMD] gittuf policy init: /c/Users/explo/Desktop/gittuf/gittuf.exe policy init -k /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/keys/policy --create-rsl-entry
+EXIT: 0
+----------------------------------------------------------------------
+[CMD] gittuf policy add-key: /c/Users/explo/Desktop/gittuf/gittuf.exe policy add-key -k /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/keys/policy --public-key /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/keys/dev.pub --create-rsl-entry
+EXIT: 0
+----------------------------------------------------------------------
+Retrieved Developer Principal ID: SHA256:enM6TCwhx5rt1d184Yc1mrAvUfnN+u0yvSkP8i9OF8k
+[CMD] gittuf policy add-rule: /c/Users/explo/Desktop/gittuf/gittuf.exe policy add-rule -k /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/keys/policy --rule-name protect-main --rule-pattern refs/heads/main --authorize SHA256:enM6TCwhx5rt1d184Yc1mrAvUfnN+u0yvSkP8i9OF8k --create-rsl-entry
+EXIT: 0
+----------------------------------------------------------------------
+[CMD] gittuf policy apply: /c/Users/explo/Desktop/gittuf/gittuf.exe policy apply -k /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/keys/policy --local-only
+EXIT: 0
+----------------------------------------------------------------------
+=== Step 4: Recording RSL Entries under Active Policy ===
+[CMD] RSL Record main (Baseline): /c/Users/explo/Desktop/gittuf/gittuf.exe rsl record main --local-only
+EXIT: 0
+----------------------------------------------------------------------
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+[CMD] Commit 4: git commit -m Update README with Commit 4
+[main 29cb229] Update README with Commit 4
+ 1 file changed, 1 insertion(+)
+EXIT: 0
+----------------------------------------------------------------------
+[CMD] RSL Record main (Commit 4): /c/Users/explo/Desktop/gittuf/gittuf.exe rsl record main --local-only
+EXIT: 0
+----------------------------------------------------------------------
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+[CMD] Commit 5: git commit -m Update README with Commit 5
+[main e025371] Update README with Commit 5
+ 1 file changed, 1 insertion(+)
+EXIT: 0
+----------------------------------------------------------------------
+[CMD] RSL Record main (Commit 5): /c/Users/explo/Desktop/gittuf/gittuf.exe rsl record main --local-only
+EXIT: 0
+----------------------------------------------------------------------
+[CMD] gittuf rsl log: /c/Users/explo/Desktop/gittuf/gittuf.exe rsl log
+entry 5a7fea3522fbef360e922164f27739d9a6195767
+
+  Ref:    refs/heads/main
+  Target: e02537180f5c17c7c32542ce643cb953a660d67d
+  Number: 9
+
+entry bf3c6ec4260119546cde4becaa9970091e863b36
+
+  Ref:    refs/heads/main
+  Target: 29cb229f0e8d9cd457142d6ef244f9f30e00c549
+  Number: 8
+
+entry d4b4e3ebe575c0f7ead37d650b84fe821acbe1e0
+
+  Ref:    refs/heads/main
+  Target: 42eb8e6beddf8126eff9ff671a85f9b8daae2e6d
+  Number: 7
+
+entry 3bf69aa6d5fdd453a4f112655ad914a7cddf42d9
+
+  Ref:    refs/gittuf/policy
+  Target: a89bb1da5f74415ebb7a543377484159ef868ed1
+  Number: 6
+
+entry 5245ca828bfe39e0a7586ce6c3a4689fabac2505
+
+  Ref:    refs/gittuf/policy-staging
+  Target: a89bb1da5f74415ebb7a543377484159ef868ed1
+  Number: 5
+
+entry 2f9e15fb38f66a1014b7384f0a20fc80fc31dad8
+
+  Ref:    refs/gittuf/policy-staging
+  Target: 92a5cde55c58befc8317cddea64c26558f756f8d
+  Number: 4
+
+entry 6cc8039e53c7c76dd7ba399cc0016be269dc5a36
+
+  Ref:    refs/gittuf/policy-staging
+  Target: b5d2749d18b993cdfcd2d5cefa9b2849e66c8784
+  Number: 3
+
+entry 781a7147cae93fe11d7e9f360b184654ffcda3c2
+
+  Ref:    refs/gittuf/policy-staging
+  Target: 3901c24cb31437460baf76f0808fb6c9d816029b
+  Number: 2
+
+entry 3f55f0959c93dc1f8f2f848edfbefaea8f745c7e
+
+  Ref:    refs/gittuf/policy-staging
+  Target: 021ce3144fb5e9edc448c715a8ffc4f18f961956
+  Number: 1
+EXIT: 0
+----------------------------------------------------------------------
+=== Step 5: Running gittuf verify-ref --verbose main ===
+[CMD] gittuf verify-ref --verbose main: /c/Users/explo/Desktop/gittuf/gittuf.exe verify-ref --verbose main
+time=2026-09-17T06:16:01.107+05:30 level=DEBUG msg="Loading Git repository from '.'..."
+time=2026-09-17T06:16:01.109+05:30 level=DEBUG msg="Looking for Git binary in PATH..."
+time=2026-09-17T06:16:01.109+05:30 level=DEBUG msg="Identifying git directory for repository..."
+time=2026-09-17T06:16:01.214+05:30 level=DEBUG msg="Setting git directory for repository to 'C:\\Users\\explo\\Desktop\\poc gittuf\\gittuf-hash-agility-poc\\work\\old-repo\\.git'..."
+time=2026-09-17T06:16:01.315+05:30 level=DEBUG msg="Identifying absolute reference path..."
+time=2026-09-17T06:16:01.633+05:30 level=DEBUG msg="Verifying gittuf policies for 'refs/heads/main'"
+time=2026-09-17T06:16:01.634+05:30 level=DEBUG msg="Loading persistent cache from disk..."
+time=2026-09-17T06:16:01.739+05:30 level=DEBUG msg="Persistent cache does not exist"
+time=2026-09-17T06:16:01.740+05:30 level=DEBUG msg="Persistent cache not found, using regular RSL searcher..."
+time=2026-09-17T06:16:01.740+05:30 level=DEBUG msg="Identifying first RSL entry for 'refs/heads/main'..."
+time=2026-09-17T06:16:05.744+05:30 level=DEBUG msg="Identifying latest RSL entry for 'refs/heads/main'..."
+time=2026-09-17T06:16:05.852+05:30 level=DEBUG msg="Verifying all entries..."
+time=2026-09-17T06:16:05.852+05:30 level=DEBUG msg="Loading policy applicable at first entry 'd4b4e3ebe575c0f7ead37d650b84fe821acbe1e0'..."
+time=2026-09-17T06:16:05.957+05:30 level=DEBUG msg="Scanning RSL for search start point using before condition..."
+time=2026-09-17T06:16:05.957+05:30 level=DEBUG msg="Found entry 'd4b4e3ebe575c0f7ead37d650b84fe821acbe1e0' matching before condition..."
+time=2026-09-17T06:16:05.957+05:30 level=DEBUG msg="Loading policy at entry '3bf69aa6d5fdd453a4f112655ad914a7cddf42d9'..."
+time=2026-09-17T06:16:05.957+05:30 level=DEBUG msg="Loading persistent cache from disk..."
+time=2026-09-17T06:16:06.061+05:30 level=DEBUG msg="Persistent cache does not exist"
+time=2026-09-17T06:16:06.061+05:30 level=DEBUG msg="Persistent cache not found, using regular RSL searcher..."
+time=2026-09-17T06:16:06.061+05:30 level=DEBUG msg="Finding first policy entry..."
+time=2026-09-17T06:16:06.368+05:30 level=DEBUG msg="Requested policy's entry is the same as first policy entry"
+time=2026-09-17T06:16:06.708+05:30 level=DEBUG msg="Loading policy for '' from '2e96b806c489bb6c06a3f337dfe38837190230b7'..."
+time=2026-09-17T06:16:07.253+05:30 level=DEBUG msg="Loaded current repository policy!"
+time=2026-09-17T06:16:07.253+05:30 level=DEBUG msg="Proceeding with verification of attestations..."
+time=2026-09-17T06:16:07.253+05:30 level=DEBUG msg="Found SSH key 'SHA256:3IKLsLQeQ3fM+zR3++q7ZX7mCuUt6vttO1jm0/LUUF0'..."
+time=2026-09-17T06:16:07.254+05:30 level=DEBUG msg="Public key 'SHA256:3IKLsLQeQ3fM+zR3++q7ZX7mCuUt6vttO1jm0/LUUF0' belonging to principal 'SHA256:3IKLsLQeQ3fM+zR3++q7ZX7mCuUt6vttO1jm0/LUUF0' successfully used to verify signature of attestation, counting 'SHA256:3IKLsLQeQ3fM+zR3++q7ZX7mCuUt6vttO1jm0/LUUF0' towards threshold..."
+time=2026-09-17T06:16:07.254+05:30 level=DEBUG msg="Proceeding with verification of attestations..."
+time=2026-09-17T06:16:07.254+05:30 level=DEBUG msg="Found SSH key 'SHA256:oX2lzrpZxvMS2scGhyn1hZ2sErDSA++m8iOJm1faTRs'..."
+time=2026-09-17T06:16:07.255+05:30 level=DEBUG msg="Public key 'SHA256:oX2lzrpZxvMS2scGhyn1hZ2sErDSA++m8iOJm1faTRs' belonging to principal 'SHA256:oX2lzrpZxvMS2scGhyn1hZ2sErDSA++m8iOJm1faTRs' successfully used to verify signature of attestation, counting 'SHA256:oX2lzrpZxvMS2scGhyn1hZ2sErDSA++m8iOJm1faTRs' towards threshold..."
+time=2026-09-17T06:16:07.255+05:30 level=DEBUG msg="Trusting root of trust for initial policy '3bf69aa6d5fdd453a4f112655ad914a7cddf42d9'..."
+time=2026-09-17T06:16:07.255+05:30 level=DEBUG msg="Loading attestations applicable at first entry 'd4b4e3ebe575c0f7ead37d650b84fe821acbe1e0'..."
+time=2026-09-17T06:16:07.377+05:30 level=DEBUG msg="Scanning RSL for search start point using before condition..."
+time=2026-09-17T06:16:07.377+05:30 level=DEBUG msg="Found entry 'd4b4e3ebe575c0f7ead37d650b84fe821acbe1e0' matching before condition..."
+time=2026-09-17T06:16:07.594+05:30 level=DEBUG msg="No attestations found before initial entry 'd4b4e3ebe575c0f7ead37d650b84fe821acbe1e0'"
+time=2026-09-17T06:16:07.594+05:30 level=DEBUG msg="Identifying all entries in range..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Verifying entry 'd4b4e3ebe575c0f7ead37d650b84fe821acbe1e0'..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Checking if entry is for policy staging reference..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Checking if entry is for policy reference..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Checking if entry is for attestations reference..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Verifying changes..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Searching for applicable reference authorizations and code reviews..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Initializing path cache in policy..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Verifying entry 'bf3c6ec4260119546cde4becaa9970091e863b36'..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Checking if entry is for policy staging reference..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Checking if entry is for policy reference..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Checking if entry is for attestations reference..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Verifying changes..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Searching for applicable reference authorizations and code reviews..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Found cached verifiers for path 'git:refs/heads/main'"
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Verifying entry '5a7fea3522fbef360e922164f27739d9a6195767'..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Checking if entry is for policy staging reference..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Checking if entry is for policy reference..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Checking if entry is for attestations reference..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Verifying changes..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Searching for applicable reference authorizations and code reviews..."
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Found cached verifiers for path 'git:refs/heads/main'"
+time=2026-09-17T06:16:07.702+05:30 level=DEBUG msg="Verifying if tip of reference matches expected value from RSL..."
+time=2026-09-17T06:16:07.811+05:30 level=DEBUG msg="Verification successful!"
+EXIT: 0
+----------------------------------------------------------------------
+
+======================================================================
+ PHASE 0 BASELINE COMPLETE. VERIFY-REF EXIT CODE: 0
+ LOG SAVED TO /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/results/01-baseline.txt
+======================================================================
