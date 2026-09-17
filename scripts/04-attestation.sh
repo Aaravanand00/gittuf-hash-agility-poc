@@ -1,70 +1,61 @@
-#!/usr/bin/env bash
-# ==============================================================================
-# Script: 04-attestation.sh
-# Purpose: Phase 3 Execution â€” Make Approach C real (Genesis DSSE Attestation)
-# ==============================================================================
+#!/bin/bash
+set -e
 
-set -u
+echo "=== Phase 3: Hash-Equivalence Attestation (Approach C) ==="
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-POC_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-KEYS_DIR="${POC_ROOT}/keys"
-WORK_DIR="${POC_ROOT}/work"
-RESULTS_DIR="${POC_ROOT}/results"
-ATTEST_REPO="${WORK_DIR}/new-repo-attest"
-OLD_REPO="${WORK_DIR}/old-repo"
+SHA1_HEAD=$(git -C work/old-repo rev-parse main)
+SHA256_HEAD=$(git -C work/new-repo-attest rev-parse main)
 
-GITTUF_BIN="${POC_ROOT}/../gittuf.exe"
-if [ ! -f "${GITTUF_BIN}" ]; then
-    GITTUF_BIN="/c/Users/explo/Desktop/gittuf/gittuf.exe"
+echo "[1] Generating DSSE PAE and payload for $SHA1_HEAD -> $SHA256_HEAD..."
+go run scripts/04-dsse-helper.go pae $SHA1_HEAD $SHA256_HEAD > work/pae.txt
+go run scripts/04-dsse-helper.go payload $SHA1_HEAD $SHA256_HEAD > work/payload.txt
+
+echo "[2] Signing PAE with old root key (gittuf native format)..."
+rm -f work/pae.txt.sig
+ssh-keygen -Y sign -n git -f keys/root work/pae.txt
+
+echo "[3] Building DSSE JSON envelope..."
+go run scripts/04-dsse-helper.go envelope $SHA1_HEAD $SHA256_HEAD keys/root.pub work/pae.txt.sig > work/hash-equivalence.json
+
+echo "[4] Pushing to refs/gittuf/attestations in new SHA-256 repository..."
+cd work/new-repo-attest
+BLOB=$(git hash-object -w ../hash-equivalence.json)
+TREE=$(printf "100644 blob %s\thash-equivalence.json\n" "$BLOB" | git mktree)
+COMMIT=$(git commit-tree $TREE -m "Add hash equivalence attestation")
+git update-ref refs/gittuf/attestations $COMMIT
+cd ../..
+echo "    -> Committed as $COMMIT"
+
+echo "--------------------------------------------------------"
+echo "[5] VERIFICATION (Positive Test)"
+echo "--------------------------------------------------------"
+git -C work/new-repo-attest show refs/gittuf/attestations:hash-equivalence.json > work/extracted.json
+
+cat work/extracted.json | grep -oP '"sig": "\K[^"]+' | base64 -d > work/extracted.sig
+cat work/extracted.json | grep -oP '"payload": "\K[^"]+' | base64 -d > work/extracted_payload.txt
+PAYLOAD_LEN=$(wc -c < work/extracted_payload.txt)
+echo -n "DSSEv1 28 application/vnd.in-toto+json $PAYLOAD_LEN " > work/extracted_pae.txt
+cat work/extracted_payload.txt >> work/extracted_pae.txt
+
+echo "root $(cat keys/root.pub)" > keys/allowed_signers
+ssh-keygen -Y verify -n git -I root -f keys/allowed_signers -s work/extracted.sig < work/extracted_pae.txt
+echo "    -> Verification SUCCESSFUL"
+
+echo "--------------------------------------------------------"
+echo "[6] VERIFICATION (Negative Tamper Test)"
+echo "--------------------------------------------------------"
+go run scripts/04-dsse-helper.go tamper work/extracted.json > work/tampered.json
+cat work/tampered.json | grep -oP '"payload": "\K[^"]+' | base64 -d > work/tampered_payload.txt
+TAMPERED_LEN=$(wc -c < work/tampered_payload.txt)
+echo -n "DSSEv1 28 application/vnd.in-toto+json $TAMPERED_LEN " > work/tampered_pae.txt
+cat work/tampered_payload.txt >> work/tampered_pae.txt
+
+if ssh-keygen -Y verify -n git -I root -f keys/allowed_signers -s work/extracted.sig < work/tampered_pae.txt 2>/dev/null; then
+  echo "    -> ERROR: Tampered signature verified successfully (FAIL-OPEN)"
+  exit 1
+else
+  echo "    -> Verification FAILED (FAIL-CLOSED - Expected)"
 fi
 
-LOG_FILE="${RESULTS_DIR}/04-attestation.txt"
-
-(
-    echo "======================================================================"
-    echo " PHASE 3: ATTESTATION GENESIS"
-    echo "======================================================================"
-
-    OLD_SHA1="$(cd "${OLD_REPO}" && git rev-parse refs/heads/main)"
-    NEW_SHA256="$(cd "${ATTEST_REPO}" && git rev-parse refs/heads/main)"
-
-    echo "[CMD] Running Go snippet to generate DSSE attestation..."
-    cd "${POC_ROOT}"
-    go run scripts/dsse_sign.go "${OLD_SHA1}" "${NEW_SHA256}" "${KEYS_DIR}/root" "${ATTEST_REPO}/genesis_attestation.json"
-    
-    cd "${ATTEST_REPO}"
-    echo "[CMD] Generated Attestation File:"
-    cat genesis_attestation.json
-
-    echo "[CMD] Storing it under refs/gittuf/attestations"
-    # To store it in the tree, we need to create a blob and put it in a tree under refs/gittuf/attestations
-    BLOB_ID=$(git hash-object -w genesis_attestation.json)
-    
-    # We will put it in a known path in the attestations tree, or just push it.
-    # Wait, the prompt says "store it under the attestations ref".
-    # I will create a simple tree for refs/gittuf/attestations.
-    printf "100644 blob ${BLOB_ID}\tgenesis_attestation.json\n" > tree_input.txt
-    TREE_ID=$(git mktree < tree_input.txt)
-    COMMIT_ID=$(echo "Initial Genesis Attestation" | git commit-tree ${TREE_ID})
-    git update-ref refs/gittuf/attestations ${COMMIT_ID}
-
-    echo "[CMD] Running gittuf verify-ref to confirm it passes"
-    "${GITTUF_BIN}" verify-ref --verbose main
-
-    echo "[CMD] Tampering with the attestation payload"
-    # Tamper with the JSON by replacing a character in the base64 payload
-    sed -i 's/"payload": "/"payload": "X/' genesis_attestation.json
-    BLOB_ID_TAMPERED=$(git hash-object -w genesis_attestation.json)
-    printf "100644 blob ${BLOB_ID_TAMPERED}\tgenesis_attestation.json\n" > tree_input_tampered.txt
-    TREE_ID_TAMPERED=$(git mktree < tree_input_tampered.txt)
-    COMMIT_ID_TAMPERED=$(echo "Tampered Genesis Attestation" | git commit-tree ${TREE_ID_TAMPERED})
-    git update-ref refs/gittuf/attestations ${COMMIT_ID_TAMPERED}
-
-    echo "[CMD] Running gittuf verify-ref with tampered attestation"
-    "${GITTUF_BIN}" verify-ref --verbose main || echo "Verification failed as expected!"
-) > "${LOG_FILE}" 2>&1
-
-EXIT_CODE=$?
-exit ${EXIT_CODE}
+echo "=== Phase 3 Completed ==="
 

@@ -1,78 +1,65 @@
-#!/usr/bin/env bash
-# ==============================================================================
-# Script: run-all.sh
-# Purpose: Orchestrate all phases of the Hash Agility PoC (Phases 0-4)
-# Usage:
-#   ./scripts/run-all.sh                    # run all phases
-#   ./scripts/run-all.sh --skip-phase 1,2   # skip phases 1 and 2
-# ==============================================================================
-
+#!/bin/bash
 set -e
-set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-POC_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-RESULTS_DIR="${POC_ROOT}/results"
+# Parse arguments
+SKIP_PHASE_0=0
+SKIP_PHASE_1=0
+SKIP_PHASE_2=0
+SKIP_PHASE_3=0
+SKIP_PHASE_4=0
 
-mkdir -p "${RESULTS_DIR}"
-
-SKIP_PHASES=""
-
-# Parse --skip-phase flag
 for arg in "$@"; do
-    case "${arg}" in
-        --skip-phase=*)
-            SKIP_PHASES="${arg#*=}"
-            ;;
-        --skip-phase)
-            shift
-            SKIP_PHASES="${1:-}"
-            ;;
-    esac
+  case $arg in
+    --skip-phase-0) SKIP_PHASE_0=1 ;;
+    --skip-phase-1) SKIP_PHASE_1=1 ;;
+    --skip-phase-2) SKIP_PHASE_2=1 ;;
+    --skip-phase-3) SKIP_PHASE_3=1 ;;
+    --skip-phase-4) SKIP_PHASE_4=1 ;;
+  esac
 done
 
-should_skip() {
-    local phase="$1"
-    echo "${SKIP_PHASES}" | tr ',' '\n' | grep -q "^${phase}$"
-}
+echo "=============================================="
+echo " Gittuf GAP-1 Hash Agility Proof of Concept"
+echo "=============================================="
 
-run_phase() {
-    local phase_num="$1"
-    local script="$2"
-    local name="$3"
+if [ $SKIP_PHASE_0 -eq 0 ]; then
+  echo "-> Running Phase 0: Environment Setup"
+  bash scripts/00-env.sh
+else
+  echo "-> Skipping Phase 0"
+fi
 
-    if should_skip "${phase_num}"; then
-        echo ">>> Skipping Phase ${phase_num}: ${name}"
-        return 0
-    fi
+if [ $SKIP_PHASE_1 -eq 0 ]; then
+  echo "-> Running Phase 1: OID-Only Commitment (Rekor-Free)"
+  bash scripts/01-snapshot.sh
+else
+  echo "-> Skipping Phase 1"
+fi
 
-    echo ""
-    echo "========================================================================"
-    echo ">>> Running Phase ${phase_num}: ${name}"
-    echo "========================================================================"
-    bash "${SCRIPT_DIR}/${script}"
-    local EXIT=$?
-    if [ ${EXIT} -ne 0 ]; then
-        echo ">>> Phase ${phase_num} FAILED with exit code ${EXIT}"
-        exit ${EXIT}
-    fi
-    echo ">>> Phase ${phase_num} PASSED (exit 0)"
-}
+if [ $SKIP_PHASE_2 -eq 0 ]; then
+  echo "-> Running Phase 2: Verification Matrix"
+  bash scripts/03-verification-matrix.sh
+else
+  echo "-> Skipping Phase 2"
+fi
 
-echo "========================================================================"
-echo " gittuf Hash Agility PoC — Full Run"
-echo " Date: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-echo "========================================================================"
+if [ $SKIP_PHASE_3 -eq 0 ]; then
+  echo "-> Running Phase 3: Hash-Equivalence Attestation"
+  bash scripts/04-attestation.sh > results/04-attestation.txt 2>&1
+  cat results/04-attestation.txt
+else
+  echo "-> Skipping Phase 3"
+fi
 
-run_phase 0 "00-env.sh"              "Environment Check & Version Pinning"
-run_phase 1 "01-baseline.sh"         "Baseline SHA-1 Repo + gittuf Init"
-run_phase 2 "03-verification-matrix.sh" "Verification Matrix (Scenarios A-D)"
-run_phase 3 "04-attestation.sh"      "DSSE Genesis Attestation (Approach C)"
-run_phase 4 "05-edge-cases.sh"       "Edge Cases"
+if [ $SKIP_PHASE_4 -eq 0 ]; then
+  echo "-> Running Phase 4: Edge Cases Probes"
+  bash scripts/05-edge.sh > results/05-edge.txt 2>&1
+  cat results/05-edge.txt
+else
+  echo "-> Skipping Phase 4"
+fi
 
-echo ""
-echo "========================================================================"
-echo " ALL PHASES COMPLETE"
-echo " Results in: ${RESULTS_DIR}"
-echo "========================================================================"
-ls -1 "${RESULTS_DIR}"
+echo "=============================================="
+echo " All phases completed successfully."
+echo " Check the results/ directory for raw outputs."
+echo "=============================================="
