@@ -1,6 +1,6 @@
 # Technical Audit: SHA-1 Assumptions in the Gittuf Codebase
 
-**Author:** Aashish Pandit (imshubham22apr-gif)  
+**Authors:** Aashish Pandit (imshubham22apr-gif), Aastha Priya  
 **Date:** August 2026  
 **Context:** GAP-1 (Hash Agility) preparation under OJT Project Track  
 **Reference Issue:** [gittuf/gittuf#104](https://github.com/gittuf/gittuf/issues/104)
