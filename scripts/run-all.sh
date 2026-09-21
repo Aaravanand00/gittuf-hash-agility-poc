@@ -30,8 +30,9 @@ else
 fi
 
 if [ $SKIP_PHASE_1 -eq 0 ]; then
-  echo "-> Running Phase 1: OID-Only Commitment (Rekor-Free)"
-  bash scripts/01-snapshot.sh
+  echo "-> Running Phase 1: Baseline SHA-1 Setup & Freeze Snapshot"
+  bash scripts/01-baseline.sh
+  bash scripts/02-freeze-snapshot.sh
 else
   echo "-> Skipping Phase 1"
 fi
