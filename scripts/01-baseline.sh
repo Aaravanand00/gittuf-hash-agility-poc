@@ -17,12 +17,15 @@ mkdir -p "${KEYS_DIR}" "${WORK_DIR}" "${RESULTS_DIR}"
 BASELINE_LOG="${RESULTS_DIR}/01-baseline.txt"
 
 # Locate gittuf binary
-GITTUF_BIN="${POC_ROOT}/../gittuf.exe"
-if [ ! -f "${GITTUF_BIN}" ]; then
-    GITTUF_BIN="/c/Users/explo/Desktop/gittuf/gittuf.exe"
+GITTUF_BIN="$(command -v gittuf 2>/dev/null || true)"
+if [ -z "${GITTUF_BIN}" ] && [ -f "/c/Users/AARAV/go/bin/gittuf.exe" ]; then
+    GITTUF_BIN="/c/Users/AARAV/go/bin/gittuf.exe"
 fi
-if [ ! -f "${GITTUF_BIN}" ]; then
-    GITTUF_BIN="$(command -v gittuf || true)"
+if [ -z "${GITTUF_BIN}" ] && [ -f "/mnt/c/Users/AARAV/go/bin/gittuf.exe" ]; then
+    GITTUF_BIN="/mnt/c/Users/AARAV/go/bin/gittuf.exe"
+fi
+if [ -z "${GITTUF_BIN}" ] && [ -f "${POC_ROOT}/../gittuf.exe" ]; then
+    GITTUF_BIN="${POC_ROOT}/../gittuf.exe"
 fi
 
 exec > >(tee "${BASELINE_LOG}") 2>&1
