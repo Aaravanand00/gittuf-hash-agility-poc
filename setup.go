@@ -170,26 +170,3 @@ func getOrCreateEmptyTree(repoPath string) (string, error) {
 	return strings.TrimSpace(out), err
 }
 
-// findGittufBinary locates the gittuf executable built at the repo root.
-func findGittufBinary() string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "gittuf"
-	}
-	// Walk up to find gittuf.exe / gittuf
-	dir := cwd
-	for {
-		for _, name := range []string{"gittuf.exe", "gittuf"} {
-			candidate := filepath.Join(dir, name)
-			if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-				return candidate
-			}
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	return "gittuf"
-}

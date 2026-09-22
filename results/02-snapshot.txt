@@ -1,0 +1,53 @@
+======================================================================
+ PHASE 1: PRE-MIGRATION REPOSITORY FREEZE & SNAPSHOT COMMITMENT
+ Date: 2026-09-17T01:24:11Z
+======================================================================
+
+=== Step 1: Computing OID-Only Commitment ===
+Root Key Fingerprint: SHA256:3IKLsLQeQ3fM+zR3++q7ZX7mCuUt6vttO1jm0/LUUF0
+--- OID Commitment Content (work/oid-commitment.txt) ---
+5a7fea3522fbef360e922164f27739d9a6195767
+SHA256:3IKLsLQeQ3fM+zR3++q7ZX7mCuUt6vttO1jm0/LUUF0
+a89bb1da5f74415ebb7a543377484159ef868ed1
+d2811b27ad214ca726979c6cfa4c8531f835e656
+e02537180f5c17c7c32542ce643cb953a660d67d
+--------------------------------------------------------
+Commitment SHA-256: bc9c9ecfb5c61e8dcdf52c0010f2ddce33a4382c9df8ebd4a1cf723719255dee
+
+=== Step 2: Creating Git Bundle (archives/old-repo.bundle) ===
+Bundle SHA-256: acfc8520deb282871c637b509aee40a165e9a9054f0820398b0ac20547993c0d
+
+=== Step 3: Generating archives/snapshot-manifest.json ===
+--- Snapshot Manifest (archives/snapshot-manifest.json) ---
+{
+  "schema_version": "gap1-poc-v1",
+  "frozen_at": "2026-09-17T01:24:14Z",
+  "sha1_repo_head": "e02537180f5c17c7c32542ce643cb953a660d67d",
+  "rsl_tip": "5a7fea3522fbef360e922164f27739d9a6195767",
+  "policy_oid": "a89bb1da5f74415ebb7a543377484159ef868ed1",
+  "bundle_sha256": "acfc8520deb282871c637b509aee40a165e9a9054f0820398b0ac20547993c0d",
+  "commitment_sha256": "bc9c9ecfb5c61e8dcdf52c0010f2ddce33a4382c9df8ebd4a1cf723719255dee",
+  "root_key_fingerprint": "SHA256:3IKLsLQeQ3fM+zR3++q7ZX7mCuUt6vttO1jm0/LUUF0"
+}
+-----------------------------------------------------------
+
+=== Step 4: Signing Manifest with Root Key (ssh-keygen -Y sign) ===
+Signing file /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/archives/snapshot-manifest.json
+Write signature to /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/archives/snapshot-manifest.json.sig
+Signature generated: /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/archives/snapshot-manifest.json.sig
+Verifying signature with ssh-keygen -Y verify...
+Good "file" signature for root-key with ED25519 key SHA256:3IKLsLQeQ3fM+zR3++q7ZX7mCuUt6vttO1jm0/LUUF0
+[PASS] Root key signature verified successfully (Exit: 0)
+
+=== Step 5: Optional RFC 3161 Timestamp (freetsa.org) ===
+[INFO] RFC 3161 timestamp acquired from freetsa.org and saved to /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/archives/snapshot-manifest.tsr
+
+=== Step 6: Determinism Verification (Recompute Twice) ===
+Original Hash:  bc9c9ecfb5c61e8dcdf52c0010f2ddce33a4382c9df8ebd4a1cf723719255dee
+Recompute Run1: bc9c9ecfb5c61e8dcdf52c0010f2ddce33a4382c9df8ebd4a1cf723719255dee
+Recompute Run2: bc9c9ecfb5c61e8dcdf52c0010f2ddce33a4382c9df8ebd4a1cf723719255dee
+[PASS] Determinism proof verified: byte-identical commitment hash across all runs.
+
+======================================================================
+ PHASE 1 COMPLETE. LOG SAVED TO /c/Users/explo/Desktop/poc gittuf/gittuf-hash-agility-poc/results/02-snapshot.txt
+======================================================================
