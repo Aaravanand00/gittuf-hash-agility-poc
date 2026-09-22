@@ -1,0 +1,49 @@
+======================================================================
+ PHASE 5: SECURITY TESTS — TAMPER RESISTANCE & CONTENT ANCHORING
+ Date: 2026-09-22T19:26:51Z
+======================================================================
+
+=== Test T1: Tamper Resistance (Real Cryptographic Test) ===
+[T1] Reading original snapshot-manifest.json...
+[T1] Original RSL/commitment hash: 5e547f99c06e9a7b...
+[T1-a] Verifying original manifest with ssh-keygen -Y verify (must PASS)...
+[T1-a] PASS: Original manifest signature valid ✅
+[T1-b] Tampered manifest: 5e547f99c06e9a7b... → ae547f99c06e9a7b...
+[T1-b] Running ssh-keygen -Y verify on TAMPERED manifest (must FAIL)...
+[PASS] T1: Cryptographic tamper detection CONFIRMED ✅
+       ssh-keygen REJECTED tampered manifest (exit 255)
+       Attacker cannot forge valid signature without the root private key.
+
+=== Test T2: Content-Level SHA-256 Anchor (Patrick P2) ===
+[T2] Computing SHA-256 of ALL Git objects in old-repo...
+[T2] Content-level SHA-256 (all objects): ac6f456673d7cc72790f3c8467b2168e3dccdf3c4e94ba1de76d6c51ac3233c2
+[T2] This anchors the ACTUAL CONTENT of the repo, not just RSL OIDs.
+[T2] If SHA-1 is broken and attacker rewrites objects → this hash changes → detected! ✅
+[T2] Content anchor saved to: /d/OneDrive/Desktop/GITTUF/work/content-anchor.txt
+
+=== Test S1: Privacy-Safe Rekor Commitment Simulation ===
+[S1] Building OID+content commitment for Sigstore/Rekor...
+[S1] Rekor Privacy Anchor written to: /d/OneDrive/Desktop/GITTUF/work/rekor-privacy-anchor.json
+[S1] Commitment digest: 329c7826e06acf98...
+[S1] Zero private data: no branch names, no usernames, no repo paths ✅
+{
+  "spec_version": "https://gittuf.dev/rekor/privacy-safe-anchor/v1",
+  "artifact_type": "application/vnd.gittuf.snapshot.v1",
+  "timestamp": "2026-09-22T19:26:56Z",
+  "immutable_root_oid": "342f878b461bcc93035463d6fe0fe589136db422",
+  "rsl_merkle_root": "756cb739fcc0a50045478c2f984399902b48dd20",
+  "content_sha256": "ac6f456673d7cc72790f3c8467b2168e3dccdf3c4e94ba1de76d6c51ac3233c2",
+  "commitment_digest": "329c7826e06acf989825c9f3550fe56630a651a641cbabf4511589f7c3a178b1",
+  "transparency_note": "Zero-leakage anchor: OIDs and content hash only. No branch names or identities exposed."
+}
+
+======================================================================
+ SECURITY TEST RESULTS
+======================================================================
+
+ T1 Tamper Resistance:     [PASS] ✅ Fail-closed verified
+ T2 Content SHA-256 Anchor:[PASS] ✅ All Git objects hashed (Patrick P2)
+ S1 Rekor Privacy Anchor:  [PASS] ✅ OID+content only, zero leakage
+
+ LOG SAVED TO: /d/OneDrive/Desktop/GITTUF/results/06-security.txt
+======================================================================
