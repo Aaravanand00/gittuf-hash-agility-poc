@@ -40,19 +40,29 @@ run_cmd "Git Version" git --version
 run_cmd "Go Version" go version
 
 # 3. Locate & Check Gittuf Binary
-GITTUF_BIN="${POC_ROOT}/../gittuf.exe"
-if [ ! -f "${GITTUF_BIN}" ]; then
-    GITTUF_BIN="/c/Users/explo/Desktop/gittuf/gittuf.exe"
-fi
-if [ ! -f "${GITTUF_BIN}" ]; then
-    GITTUF_BIN="$(command -v gittuf || true)"
+GITTUF_BIN="$(command -v gittuf 2>/dev/null || true)"
+if [ -z "${GITTUF_BIN}" ]; then
+    CURRENT_USER="${USER:-${USERNAME:-}}"
+    for candidate in \
+        "${HOME}/go/bin/gittuf" \
+        "${HOME}/go/bin/gittuf.exe" \
+        "/c/Users/${CURRENT_USER}/go/bin/gittuf.exe" \
+        "/mnt/c/Users/${CURRENT_USER}/go/bin/gittuf.exe" \
+        "${POC_ROOT}/bin/gittuf" \
+        "${POC_ROOT}/bin/gittuf.exe" \
+        "${POC_ROOT}/../gittuf.exe"; do
+        if [ -n "${candidate}" ] && [ -f "${candidate}" ]; then
+            GITTUF_BIN="${candidate}"
+            break
+        fi
+    done
 fi
 
 if [ -n "${GITTUF_BIN}" ]; then
     run_cmd "Gittuf Version" "${GITTUF_BIN}" version
     run_cmd "Gittuf CLI Help" "${GITTUF_BIN}" --help
 else
-    echo "[WARNING] gittuf binary not found."
+    echo "[WARNING] gittuf binary not found in PATH or standard Go bin directories."
     echo "EXIT: 127"
 fi
 

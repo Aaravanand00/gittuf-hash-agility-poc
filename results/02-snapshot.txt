@@ -1,32 +1,32 @@
 ======================================================================
  PHASE 1: PRE-MIGRATION REPOSITORY FREEZE & SNAPSHOT COMMITMENT
- Date: 2026-09-22T19:26:48Z
+ Date: 2026-09-22T20:58:25Z
 ======================================================================
 
 === Step 1: Computing OID-Only Commitment ===
 Root Key Fingerprint: SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8
 --- OID Commitment Content (work/oid-commitment.txt) ---
-24295a7ce61f8ac014ee2aa5ed60154a07d6da3b
-342f878b461bcc93035463d6fe0fe589136db422
-756cb739fcc0a50045478c2f984399902b48dd20
-8e3528fcbe36a8e7537b8d37c664ad714092e713
+2a918936d621f670815d496284883088168265aa
+3a532cbf30b3e9cae1d04c308784b5b5a5a4241c
+414ecab181a60d84bc4768132e76dbe0b229a28c
+609ab05c45300b81b5a85bd187599f5b04ad68fd
 SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8
 --------------------------------------------------------
-Commitment SHA-256: 5e547f99c06e9a7b96014587f117012d775d3d5796234e391314aaecaa68c0a5
+Commitment SHA-256: 6f2906e7c1a5f1695c32d90985ea94edc707b148d32a5bd2ff1467e40fc82192
 
 === Step 2: Creating Git Bundle (archives/old-repo.bundle) ===
-Bundle SHA-256: f99264ac03727c86434cccc0fd98968086e2b0d0ba34169ab50f2d4ed2efe461
+Bundle SHA-256: 1a7c62ebbaf9c64275c924e68310ecdce6aa0cd76e2baf6ac400beb3b53a30cc
 
 === Step 3: Generating archives/snapshot-manifest.json ===
 --- Snapshot Manifest (archives/snapshot-manifest.json) ---
 {
   "schema_version": "gap1-poc-v1",
-  "frozen_at": "2026-09-22T19:26:49Z",
-  "sha1_repo_head": "342f878b461bcc93035463d6fe0fe589136db422",
-  "rsl_tip": "756cb739fcc0a50045478c2f984399902b48dd20",
-  "policy_oid": "8e3528fcbe36a8e7537b8d37c664ad714092e713",
-  "bundle_sha256": "f99264ac03727c86434cccc0fd98968086e2b0d0ba34169ab50f2d4ed2efe461",
-  "commitment_sha256": "5e547f99c06e9a7b96014587f117012d775d3d5796234e391314aaecaa68c0a5",
+  "frozen_at": "2026-09-22T20:58:26Z",
+  "sha1_repo_head": "2a918936d621f670815d496284883088168265aa",
+  "rsl_tip": "414ecab181a60d84bc4768132e76dbe0b229a28c",
+  "policy_oid": "3a532cbf30b3e9cae1d04c308784b5b5a5a4241c",
+  "bundle_sha256": "1a7c62ebbaf9c64275c924e68310ecdce6aa0cd76e2baf6ac400beb3b53a30cc",
+  "commitment_sha256": "6f2906e7c1a5f1695c32d90985ea94edc707b148d32a5bd2ff1467e40fc82192",
   "root_key_fingerprint": "SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8"
 }
 -----------------------------------------------------------
@@ -43,9 +43,9 @@ Good "file" signature for root-key with ED25519 key SHA256:8DDk3T2VDDG6mSvmF9ori
 [INFO] RFC 3161 timestamp acquired from freetsa.org and saved to /d/OneDrive/Desktop/GITTUF/archives/snapshot-manifest.tsr
 
 === Step 6: Determinism Verification (Recompute Twice) ===
-Original Hash:  5e547f99c06e9a7b96014587f117012d775d3d5796234e391314aaecaa68c0a5
-Recompute Run1: 5e547f99c06e9a7b96014587f117012d775d3d5796234e391314aaecaa68c0a5
-Recompute Run2: 5e547f99c06e9a7b96014587f117012d775d3d5796234e391314aaecaa68c0a5
+Original Hash:  6f2906e7c1a5f1695c32d90985ea94edc707b148d32a5bd2ff1467e40fc82192
+Recompute Run1: 6f2906e7c1a5f1695c32d90985ea94edc707b148d32a5bd2ff1467e40fc82192
+Recompute Run2: 6f2906e7c1a5f1695c32d90985ea94edc707b148d32a5bd2ff1467e40fc82192
 [PASS] Determinism proof verified: byte-identical commitment hash across all runs.
 
 ======================================================================

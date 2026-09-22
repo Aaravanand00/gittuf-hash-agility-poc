@@ -1,0 +1,55 @@
+=== Phase 4: Edge Cases Probes ===
+--------------------------------------------------------
+PROBE 1: compatObjectFormat Window
+--------------------------------------------------------
+HYPOTHESIS: Git will resolve OLD 40-char OIDs, but gittuf will fail because the old OIDs embedded in the commit messages won't match the new SHA-256 identities of the target commits.
+Initialized empty Git repository in D:/OneDrive/Desktop/GITTUF/work/new-repo-compat/.git/
+fast-import statistics:
+---------------------------------------------------------------------
+Alloc'd objects:       5000
+Total objects:           46 (         0 duplicates                  )
+      blobs  :           10 (         0 duplicates          5 deltas of          6 attempts)
+      trees  :           16 (         0 duplicates          7 deltas of         12 attempts)
+      commits:           19 (         0 duplicates          0 deltas of          0 attempts)
+      tags   :            1 (         0 duplicates          0 deltas of          0 attempts)
+Total branches:           5 (         4 loads     )
+      marks:           1024 (        29 unique    )
+      atoms:              6
+Memory total:          2493 KiB
+       pools:          2141 KiB
+     objects:           351 KiB
+---------------------------------------------------------------------
+pack_report: getpagesize()            =      65536
+pack_report: core.packedGitWindowSize = 1073741824
+pack_report: core.packedGitLimit      = 35184372088832
+pack_report: pack_used_ctr            =          3
+pack_report: pack_mmap_calls          =          2
+pack_report: pack_open_windows        =          0 /          1
+pack_report: pack_mapped              =          0 /       8059
+---------------------------------------------------------------------
+
+RESULT 1.1: Fetch FAILED even with compatObjectFormat!
+Checking if git cat-file -p 2a918936d621f670815d496284883088168265aa works in compat repo...
+RESULT 1.2: Git successfully resolved the old SHA-1 OID natively!
+Running gittuf verify-ref...
+RESULT 1.3: gittuf verify-ref FAILED (FAIL-CLOSED / EXPECTED)
+Error: gittuf does not support repositories with extensions.compatObjectFormat enabled: compat object format is set to 'sha1'
+--------------------------------------------------------
+PROBE 2: Fresh-Clone Verification
+--------------------------------------------------------
+HYPOTHESIS: Cloning the fresh SHA-256 repo will succeed and verify cleanly, confirming state is portable.
+RESULT 2: Clone verification FAILED.
+--------------------------------------------------------
+PROBE 3: Retaining Signed Tags in SHA-256
+--------------------------------------------------------
+HYPOTHESIS: git fast-export without --signed-tags=strip will fail during import, or silently strip the signature, because the signature is over the SHA-1 text.
+Initialized empty Git repository in D:/OneDrive/Desktop/GITTUF/work/new-repo-signedtags/.git/
+RESULT 3: Import succeeded. Checking tag signature...
+error: tag 'v1.0' not found.
+--------------------------------------------------------
+PROBE 4: Snapshot Determinism
+--------------------------------------------------------
+HYPOTHESIS: Re-running the commitment script on a fresh clone of the bundle will yield the exact same SHA-256 hash.
+grep: -P supports only unibyte and UTF-8 locales
+RESULT 4: Determinism FAILED! New: 6f2906e7c1a5f1695c32d90985ea94edc707b148d32a5bd2ff1467e40fc82192 vs Manifest: 
+=== Phase 4 Completed ===

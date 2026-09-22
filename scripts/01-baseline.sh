@@ -18,14 +18,21 @@ BASELINE_LOG="${RESULTS_DIR}/01-baseline.txt"
 
 # Locate gittuf binary
 GITTUF_BIN="$(command -v gittuf 2>/dev/null || true)"
-if [ -z "${GITTUF_BIN}" ] && [ -f "/c/Users/AARAV/go/bin/gittuf.exe" ]; then
-    GITTUF_BIN="/c/Users/AARAV/go/bin/gittuf.exe"
-fi
-if [ -z "${GITTUF_BIN}" ] && [ -f "/mnt/c/Users/AARAV/go/bin/gittuf.exe" ]; then
-    GITTUF_BIN="/mnt/c/Users/AARAV/go/bin/gittuf.exe"
-fi
-if [ -z "${GITTUF_BIN}" ] && [ -f "${POC_ROOT}/../gittuf.exe" ]; then
-    GITTUF_BIN="${POC_ROOT}/../gittuf.exe"
+if [ -z "${GITTUF_BIN}" ]; then
+    CURRENT_USER="${USER:-${USERNAME:-}}"
+    for candidate in \
+        "${HOME}/go/bin/gittuf" \
+        "${HOME}/go/bin/gittuf.exe" \
+        "/c/Users/${CURRENT_USER}/go/bin/gittuf.exe" \
+        "/mnt/c/Users/${CURRENT_USER}/go/bin/gittuf.exe" \
+        "${POC_ROOT}/bin/gittuf" \
+        "${POC_ROOT}/bin/gittuf.exe" \
+        "${POC_ROOT}/../gittuf.exe"; do
+        if [ -n "${candidate}" ] && [ -f "${candidate}" ]; then
+            GITTUF_BIN="${candidate}"
+            break
+        fi
+    done
 fi
 
 exec > >(tee "${BASELINE_LOG}") 2>&1
