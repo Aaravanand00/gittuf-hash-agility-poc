@@ -36,9 +36,9 @@ if [ ! -f "${MANIFEST_FILE}" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# T1: Tamper Resistance Test
+# T1: Tamper Resistance Test (Real Cryptographic Verification)
 # ---------------------------------------------------------------------------
-echo "=== Test T1: Tamper Resistance (Negative Security Test) ==="
+echo "=== Test T1: Tamper Resistance (Real Cryptographic Test) ==="
 echo "[T1] Reading original snapshot-manifest.json..."
 
 ORIGINAL_RSL_HASH=$(python3 -c "import json,sys; d=json.load(open('${MANIFEST_FILE}')); print(d.get('rsl_chain_hash', d.get('commitment_sha256','')))" 2>/dev/null || \
@@ -46,40 +46,64 @@ ORIGINAL_RSL_HASH=$(python3 -c "import json,sys; d=json.load(open('${MANIFEST_FI
                     grep -o '"commitment_sha256": *"[^"]*"' "${MANIFEST_FILE}" | head -1 | cut -d'"' -f4)
 
 if [ -z "${ORIGINAL_RSL_HASH}" ]; then
-    # Fallback: read any sha256 field
     ORIGINAL_RSL_HASH=$(grep -o '"[a-f0-9]\{64\}"' "${MANIFEST_FILE}" | head -1 | tr -d '"')
 fi
 
 echo "[T1] Original RSL/commitment hash: ${ORIGINAL_RSL_HASH:0:16}..."
 
-# Create tampered manifest
-TAMPERED_FILE="${WORK_DIR}/tampered-manifest.json"
-cp "${MANIFEST_FILE}" "${TAMPERED_FILE}"
+SIG_FILE="${MANIFEST_FILE}.sig"
+KEYS_DIR="${POC_ROOT}/keys"
+ALLOWED_SIGNERS="${WORK_DIR}/allowed_signers"
 
-# Flip first character of the hash (simulates attacker injection)
-FIRST_CHAR="${ORIGINAL_RSL_HASH:0:1}"
-if [ "${FIRST_CHAR}" = "a" ]; then
-    TAMPERED_HASH="b${ORIGINAL_RSL_HASH:1}"
-else
-    TAMPERED_HASH="a${ORIGINAL_RSL_HASH:1}"
-fi
-
-# Replace in tampered file (works on both Linux/macOS/Git Bash)
-sed -i "s/${ORIGINAL_RSL_HASH}/${TAMPERED_HASH}/g" "${TAMPERED_FILE}"
-
-echo "[T1] Tampered manifest written to: ${TAMPERED_FILE}"
-echo "[T1] Injected hash: ${TAMPERED_HASH:0:16}... (attacker's forged value)"
-
-# Verify tamper detection
-echo "[T2] Running integrity check — does the verifier detect the tampering?"
-DETECTED_HASH=$(grep -o '"[a-f0-9]\{64\}"' "${TAMPERED_FILE}" | head -1 | tr -d '"')
-
-if [ "${DETECTED_HASH}" != "${ORIGINAL_RSL_HASH}" ]; then
-    echo "[PASS] T1: Tamper detected — hashes do NOT match. System would fail-closed. ✅"
+if [ ! -f "${SIG_FILE}" ]; then
+    echo "[SKIP] T1: ${SIG_FILE} not found — run Phase 1 first to generate signature."
     T1_STATUS=0
 else
-    echo "[FAIL] T1: Tamper NOT detected — hashes still match. Verification broken! ❌"
-    T1_STATUS=1
+    # Step 1: Verify ORIGINAL manifest against its signature — must PASS
+    echo "[T1-a] Verifying original manifest with ssh-keygen -Y verify (must PASS)..."
+    echo "root-key $(cat "${KEYS_DIR}/root.pub")" > "${ALLOWED_SIGNERS}"
+    ssh-keygen -Y verify -f "${ALLOWED_SIGNERS}" -I "root-key" -n file \
+        -s "${SIG_FILE}" < "${MANIFEST_FILE}" > /dev/null 2>&1
+    ORIG_VERIFY=$?
+
+    if [ ${ORIG_VERIFY} -eq 0 ]; then
+        echo "[T1-a] PASS: Original manifest signature valid ✅"
+    else
+        echo "[T1-a] FAIL: Original manifest signature invalid — Phase 1 signing broken ❌"
+        T1_STATUS=1
+    fi
+
+    # Step 2: Create tampered manifest — attacker flips one character in the hash
+    TAMPERED_FILE="${WORK_DIR}/tampered-manifest.json"
+    cp "${MANIFEST_FILE}" "${TAMPERED_FILE}"
+
+    FIRST_CHAR="${ORIGINAL_RSL_HASH:0:1}"
+    if [ "${FIRST_CHAR}" = "a" ]; then
+        TAMPERED_HASH="b${ORIGINAL_RSL_HASH:1}"
+    else
+        TAMPERED_HASH="a${ORIGINAL_RSL_HASH:1}"
+    fi
+
+    sed -i "s/${ORIGINAL_RSL_HASH}/${TAMPERED_HASH}/g" "${TAMPERED_FILE}"
+    echo "[T1-b] Tampered manifest: ${ORIGINAL_RSL_HASH:0:16}... → ${TAMPERED_HASH:0:16}..."
+
+    # Step 3: Verify TAMPERED manifest against ORIGINAL signature — MUST FAIL
+    # ssh-keygen -Y verify cryptographically rejects ANY byte change in the signed file.
+    # This is real tamper detection — not a string comparison.
+    echo "[T1-b] Running ssh-keygen -Y verify on TAMPERED manifest (must FAIL)..."
+    ssh-keygen -Y verify -f "${ALLOWED_SIGNERS}" -I "root-key" -n file \
+        -s "${SIG_FILE}" < "${TAMPERED_FILE}" > /dev/null 2>&1
+    TAMPER_VERIFY=$?
+
+    if [ ${TAMPER_VERIFY} -ne 0 ]; then
+        echo "[PASS] T1: Cryptographic tamper detection CONFIRMED ✅"
+        echo "       ssh-keygen REJECTED tampered manifest (exit ${TAMPER_VERIFY})"
+        echo "       Attacker cannot forge valid signature without the root private key."
+        T1_STATUS=0
+    else
+        echo "[FAIL] T1: Tampered manifest accepted — CRITICAL VULNERABILITY ❌"
+        T1_STATUS=1
+    fi
 fi
 echo
 
