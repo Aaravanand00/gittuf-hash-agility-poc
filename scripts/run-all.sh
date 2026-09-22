@@ -7,6 +7,7 @@ SKIP_PHASE_1=0
 SKIP_PHASE_2=0
 SKIP_PHASE_3=0
 SKIP_PHASE_4=0
+SKIP_PHASE_5=0
 
 for arg in "$@"; do
   case $arg in
@@ -15,6 +16,7 @@ for arg in "$@"; do
     --skip-phase-2) SKIP_PHASE_2=1 ;;
     --skip-phase-3) SKIP_PHASE_3=1 ;;
     --skip-phase-4) SKIP_PHASE_4=1 ;;
+    --skip-phase-5) SKIP_PHASE_5=1 ;;
   esac
 done
 
@@ -58,6 +60,13 @@ if [ $SKIP_PHASE_4 -eq 0 ]; then
   cat results/05-edge.txt
 else
   echo "-> Skipping Phase 4"
+fi
+
+if [ $SKIP_PHASE_5 -eq 0 ]; then
+  echo "-> Running Phase 5: Security Tests (Tamper Resistance + Content Anchoring)"
+  bash scripts/06-security-tests.sh
+else
+  echo "-> Skipping Phase 5"
 fi
 
 echo "=============================================="
