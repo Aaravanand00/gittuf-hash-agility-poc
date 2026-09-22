@@ -1,0 +1,19 @@
+=== Phase 3: Hash-Equivalence Attestation (Approach C) ===
+[1] Generating DSSE PAE and payload for 2a918936d621f670815d496284883088168265aa -> e23493a030b1544bfa4cbaa909485e0ac8c590a52129f165b9b43e464245307e...
+[2] Signing PAE with old root key (gittuf native format)...
+Signing file work/pae.txt
+Write signature to work/pae.txt.sig
+[3] Building DSSE JSON envelope...
+[4] Pushing to refs/gittuf/attestations in new SHA-256 repository...
+    -> Committed as c0ab4d2608f4010091cad3334f29a741cef88afed1798ee7073cb40d4cb06a46
+--------------------------------------------------------
+[5] VERIFICATION (Positive Test)
+--------------------------------------------------------
+Good "git" signature for root with ED25519 key SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8
+    -> Verification SUCCESSFUL
+--------------------------------------------------------
+[6] VERIFICATION (Negative Tamper Test)
+--------------------------------------------------------
+Could not verify signature.
+    -> Verification FAILED (FAIL-CLOSED - Expected)
+=== Phase 3 Completed ===

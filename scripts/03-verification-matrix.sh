@@ -16,12 +16,22 @@ RESULTS_DIR="${POC_ROOT}/results"
 mkdir -p "${RESULTS_DIR}" "${WORK_DIR}"
 
 # Locate gittuf binary
-GITTUF_BIN="${POC_ROOT}/../gittuf.exe"
-if [ ! -f "${GITTUF_BIN}" ]; then
-    GITTUF_BIN="/c/Users/explo/Desktop/gittuf/gittuf.exe"
-fi
-if [ ! -f "${GITTUF_BIN}" ]; then
-    GITTUF_BIN="$(command -v gittuf || true)"
+GITTUF_BIN="$(command -v gittuf 2>/dev/null || true)"
+if [ -z "${GITTUF_BIN}" ]; then
+    CURRENT_USER="${USER:-${USERNAME:-}}"
+    for candidate in \
+        "${HOME}/go/bin/gittuf" \
+        "${HOME}/go/bin/gittuf.exe" \
+        "/c/Users/${CURRENT_USER}/go/bin/gittuf.exe" \
+        "/mnt/c/Users/${CURRENT_USER}/go/bin/gittuf.exe" \
+        "${POC_ROOT}/bin/gittuf" \
+        "${POC_ROOT}/bin/gittuf.exe" \
+        "${POC_ROOT}/../gittuf.exe"; do
+        if [ -n "${candidate}" ] && [ -f "${candidate}" ]; then
+            GITTUF_BIN="${candidate}"
+            break
+        fi
+    done
 fi
 
 echo "======================================================================"

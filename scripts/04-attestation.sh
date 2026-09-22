@@ -31,8 +31,7 @@ echo "[5] VERIFICATION (Positive Test)"
 echo "--------------------------------------------------------"
 git -C work/new-repo-attest show refs/gittuf/attestations:hash-equivalence.json > work/extracted.json
 
-cat work/extracted.json | grep -oP '"sig": "\K[^"]+' | base64 -d > work/extracted.sig
-cat work/extracted.json | grep -oP '"payload": "\K[^"]+' | base64 -d > work/extracted_payload.txt
+go run scripts/04-dsse-helper.go extract work/extracted.json work/extracted.sig work/extracted_payload.txt
 PAYLOAD_LEN=$(wc -c < work/extracted_payload.txt)
 echo -n "DSSEv1 28 application/vnd.in-toto+json $PAYLOAD_LEN " > work/extracted_pae.txt
 cat work/extracted_payload.txt >> work/extracted_pae.txt
@@ -45,7 +44,7 @@ echo "--------------------------------------------------------"
 echo "[6] VERIFICATION (Negative Tamper Test)"
 echo "--------------------------------------------------------"
 go run scripts/04-dsse-helper.go tamper work/extracted.json > work/tampered.json
-cat work/tampered.json | grep -oP '"payload": "\K[^"]+' | base64 -d > work/tampered_payload.txt
+go run scripts/04-dsse-helper.go extract work/tampered.json work/tampered.sig work/tampered_payload.txt
 TAMPERED_LEN=$(wc -c < work/tampered_payload.txt)
 echo -n "DSSEv1 28 application/vnd.in-toto+json $TAMPERED_LEN " > work/tampered_pae.txt
 cat work/tampered_payload.txt >> work/tampered_pae.txt
