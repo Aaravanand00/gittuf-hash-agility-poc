@@ -1,0 +1,32 @@
+## gittuf trust remote
+
+Tools for managing remote policies
+
+### Synopsis
+
+The 'remote' subcommand provides tools for pulling and pushing gittuf policy to and from remote repositories.
+
+### Options
+
+```
+  -h, --help   help for remote
+```
+
+### Options inherited from parent commands
+
+```
+      --create-rsl-entry             create RSL entry for policy change immediately (note: the RSL will not be synced with the remote)
+      --no-color                     turn off colored output
+      --profile                      enable CPU and memory profiling
+      --profile-CPU-file string      file to store CPU profile (default "cpu.prof")
+      --profile-memory-file string   file to store memory profile (default "memory.prof")
+  -k, --signing-key string           signing key to use to sign root of trust (path to SSH key, "gpg:<fingerprint>" for GPG, "fulcio:" for Sigstore)
+      --verbose                      enable verbose logging
+```
+
+### SEE ALSO
+
+* [gittuf trust](gittuf_trust.md)	 - Tools for gittuf's root of trust
+* [gittuf trust remote pull](gittuf_trust_remote_pull.md)	 - Pull policy from the specified remote
+* [gittuf trust remote push](gittuf_trust_remote_push.md)	 - Push policy to the specified remote
+

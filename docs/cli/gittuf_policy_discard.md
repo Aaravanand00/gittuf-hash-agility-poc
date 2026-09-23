@@ -1,0 +1,34 @@
+## gittuf policy discard
+
+Discard the currently staged changes to policy
+
+### Synopsis
+
+The 'discard' command removes any currently staged policy changes and records the discard in the RSL. It is used to revert pending policy updates before they are applied to the repository.
+
+```
+gittuf policy discard [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for discard
+```
+
+### Options inherited from parent commands
+
+```
+      --create-rsl-entry             create RSL entry for policy change immediately (note: the RSL will not be synced with the remote)
+      --no-color                     turn off colored output
+      --profile                      enable CPU and memory profiling
+      --profile-CPU-file string      file to store CPU profile (default "cpu.prof")
+      --profile-memory-file string   file to store memory profile (default "memory.prof")
+  -k, --signing-key string           signing key to use to sign policy metadata (path to SSH key, "gpg:<fingerprint>" for GPG, "fulcio:" for Sigstore)
+      --verbose                      enable verbose logging
+```
+
+### SEE ALSO
+
+* [gittuf policy](gittuf_policy.md)	 - Tools to manage gittuf policies
+

@@ -1,0 +1,371 @@
+// Copyright The gittuf Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package gittuf
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/gittuf/gittuf/internal/gitstoretest"
+	"github.com/gittuf/gittuf/internal/signerverifier/gpg"
+	"github.com/gittuf/gittuf/internal/signerverifier/ssh"
+	artifacts "github.com/gittuf/gittuf/internal/testartifacts"
+	"github.com/gittuf/gittuf/pkg/gitinterface"
+	"github.com/gittuf/gittuf/pkg/gitstore"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestLoadSigner(t *testing.T) {
+	tmpDir := t.TempDir()
+	tests := map[string]struct {
+		keyBytes       []byte
+		publicKeyBytes []byte
+	}{
+		"ssh-rsa-key":     {keyBytes: artifacts.SSHRSAPrivate, publicKeyBytes: artifacts.SSHRSAPublicSSH},
+		"ssh-ecdsa-key":   {keyBytes: artifacts.SSHECDSAPrivate, publicKeyBytes: artifacts.SSHECDSAPublicSSH},
+		"ssh-ed25519-key": {keyBytes: artifacts.SSHED25519Private, publicKeyBytes: artifacts.SSHED25519PublicSSH},
+	}
+
+	for name, test := range tests {
+		keyPath := filepath.Join(tmpDir, name)
+		if err := os.WriteFile(keyPath, test.keyBytes, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(keyPath+".pub", test.publicKeyBytes, 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		signer, err := LoadSigner(nil, keyPath)
+		assert.Nil(t, err, fmt.Sprintf("unexpected error in test '%s'", name))
+
+		_, err = signer.Sign(context.Background(), nil)
+		assert.Nil(t, err)
+	}
+
+	// Test passthrough to LoadSignerFromGitConfig
+
+	// Prevent developer Git config from leaking through
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_SYSTEM", os.DevNull)
+
+	t.Run("gpg", func(t *testing.T) {
+		// Make a test GPG keyring in tempdir to use for tests
+		gpg.SetupTestGPGHomeDir(t, artifacts.GPGKey1Private, artifacts.GPGKey2Private)
+
+		// Test GPG key fingerprints
+		fingerprintGPG1 := "157507bbe151e378ce8126c1dcfe043cdd2db96e"
+		fingerprintGPG2 := "7707e87f10df498472babc32e517e211cb23a9e9"
+
+		t.Run("no signing method specified", func(t *testing.T) {
+			// Test no configuration, this means GPG
+			tmpDir := t.TempDir()
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			if err := repo.r.SetGitConfig("gpg.format", ""); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.r.SetGitConfig("user.signingkey", ""); err != nil {
+				t.Fatal(err)
+			}
+
+			// No signingkey specified -> error
+			_, err := LoadSigner(repo, "")
+			assert.ErrorIs(t, err, ErrSigningKeyNotSpecified)
+		})
+
+		t.Run("method specified but no signing key specified", func(t *testing.T) {
+			tmpDir := t.TempDir()
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			if err := repo.r.SetGitConfig("gpg.format", "gpg"); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.r.SetGitConfig("user.signingkey", ""); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := LoadSigner(repo, "")
+			assert.ErrorIs(t, err, ErrSigningKeyNotSpecified)
+		})
+
+		t.Run("no method specified but signing key specified", func(t *testing.T) {
+			tmpDir := t.TempDir()
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			if err := repo.r.SetGitConfig("gpg.format", ""); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.r.SetGitConfig("user.signingkey", fingerprintGPG1); err != nil {
+				t.Fatal(err)
+			}
+
+			signer, err := LoadSigner(repo, "")
+			assert.Nil(t, err)
+
+			keyID, err := signer.KeyID()
+			require.NoError(t, err)
+			assert.Equal(t, fingerprintGPG1, keyID)
+		})
+
+		t.Run("method and signing key specified", func(t *testing.T) {
+			tmpDir := t.TempDir()
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			if err := repo.r.SetGitConfig("gpg.format", "gpg"); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.r.SetGitConfig("user.signingkey", fingerprintGPG2); err != nil {
+				t.Fatal(err)
+			}
+
+			signer, err := LoadSigner(repo, "")
+			assert.Nil(t, err)
+
+			keyID, err := signer.KeyID()
+			require.NoError(t, err)
+			assert.Equal(t, fingerprintGPG2, keyID)
+		})
+	})
+
+	t.Run("ssh", func(t *testing.T) {
+		t.Run("ssh key configured, but no signing key specified", func(t *testing.T) {
+			// Test misconfiguration of SSH
+			tmpDir := t.TempDir()
+			// CreateTestGitRepository sets up the repository to use ssh by default
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			if err := repo.r.SetGitConfig("user.signingkey", ""); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := LoadSigner(repo, "")
+			assert.ErrorIs(t, err, ErrSigningKeyNotSpecified)
+		})
+
+		t.Run("ssh key specified", func(t *testing.T) {
+			// Test a working SSH key configured
+			tmpDir := t.TempDir()
+			// CreateTestGitRepository sets up the repository to use ssh by default
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			signer, err := LoadSigner(repo, "")
+			assert.Nil(t, err)
+
+			compareKey := artifacts.SSHRSAPrivate
+
+			compareSigner := ssh.NewKeyFromBytes(t, compareKey)
+			require.NoError(t, err)
+			signerKeyID, err := signer.KeyID()
+			require.NoError(t, err)
+			assert.Equal(t, compareSigner.KeyID, signerKeyID)
+		})
+	})
+
+	// We can't test sigstore due to it being online...
+}
+
+func TestLoadSignerFromGitConfig(t *testing.T) {
+	// Prevent developer Git config from leaking through
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_SYSTEM", os.DevNull)
+
+	t.Run("gpg", func(t *testing.T) {
+		// Make a test GPG keyring in tempdir to use for tests
+		gpg.SetupTestGPGHomeDir(t, artifacts.GPGKey1Private, artifacts.GPGKey2Private)
+
+		// Test GPG key fingerprints
+		fingerprintGPG1 := "157507bbe151e378ce8126c1dcfe043cdd2db96e"
+		fingerprintGPG2 := "7707e87f10df498472babc32e517e211cb23a9e9"
+
+		t.Run("no signing method specified", func(t *testing.T) {
+			// Test no configuration, this means GPG
+			tmpDir := t.TempDir()
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			if err := repo.r.SetGitConfig("gpg.format", ""); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.r.SetGitConfig("user.signingkey", ""); err != nil {
+				t.Fatal(err)
+			}
+
+			// No signingkey specified -> error
+			_, err := LoadSignerFromGitConfig(repo)
+			assert.ErrorIs(t, err, ErrSigningKeyNotSpecified)
+		})
+
+		t.Run("method specified but no signing key specified", func(t *testing.T) {
+			tmpDir := t.TempDir()
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			if err := repo.r.SetGitConfig("gpg.format", "gpg"); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.r.SetGitConfig("user.signingkey", ""); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := LoadSignerFromGitConfig(repo)
+			assert.ErrorIs(t, err, ErrSigningKeyNotSpecified)
+		})
+
+		t.Run("no method specified but signing key specified", func(t *testing.T) {
+			tmpDir := t.TempDir()
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			if err := repo.r.SetGitConfig("gpg.format", ""); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.r.SetGitConfig("user.signingkey", fingerprintGPG1); err != nil {
+				t.Fatal(err)
+			}
+
+			signer, err := LoadSignerFromGitConfig(repo)
+			assert.Nil(t, err)
+
+			keyID, err := signer.KeyID()
+			require.NoError(t, err)
+			assert.Equal(t, fingerprintGPG1, keyID)
+		})
+
+		t.Run("method and signing key specified", func(t *testing.T) {
+			tmpDir := t.TempDir()
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			if err := repo.r.SetGitConfig("gpg.format", "gpg"); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.r.SetGitConfig("user.signingkey", fingerprintGPG2); err != nil {
+				t.Fatal(err)
+			}
+
+			signer, err := LoadSignerFromGitConfig(repo)
+			assert.Nil(t, err)
+
+			keyID, err := signer.KeyID()
+			require.NoError(t, err)
+			assert.Equal(t, fingerprintGPG2, keyID)
+		})
+	})
+
+	t.Run("ssh", func(t *testing.T) {
+		t.Run("ssh key configured, but no signing key specified", func(t *testing.T) {
+			// Test misconfiguration of SSH
+			tmpDir := t.TempDir()
+			// CreateTestGitRepository sets up the repository to use ssh by default
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			if err := repo.r.SetGitConfig("user.signingkey", ""); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := LoadSignerFromGitConfig(repo)
+			assert.ErrorIs(t, err, ErrSigningKeyNotSpecified)
+		})
+
+		t.Run("ssh key specified", func(t *testing.T) {
+			// Test a working SSH key configured
+			tmpDir := t.TempDir()
+			// CreateTestGitRepository sets up the repository to use ssh by default
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			signer, err := LoadSignerFromGitConfig(repo)
+			assert.Nil(t, err)
+
+			compareKey := artifacts.SSHRSAPrivate
+
+			compareSigner := ssh.NewKeyFromBytes(t, compareKey)
+			require.NoError(t, err)
+			signerKeyID, err := signer.KeyID()
+			require.NoError(t, err)
+			assert.Equal(t, compareSigner.KeyID, signerKeyID)
+		})
+	})
+
+	t.Run("X.509", func(t *testing.T) {
+		t.Run("non-sigstore program", func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			repo := &Repository{r: gitinterface.CreateTestGitRepository(t, tmpDir, false)}
+
+			require.NoError(t, repo.r.SetGitConfig("gpg.format", "x509"))
+			require.NoError(t, repo.r.SetGitConfig("user.signingkey", ""))
+
+			_, err := LoadSignerFromGitConfig(repo)
+			assert.ErrorIs(t, err, ErrUnsupportedX509Method)
+		})
+	})
+
+	// We can't test sigstore due to it being online...
+}
+
+func TestLoadPublicKey(t *testing.T) {
+	t.Run("sigstore", func(t *testing.T) {
+		t.Run("fulcio valid", func(t *testing.T) {
+			keyRef := "fulcio:test@email.com::issuer"
+
+			key, err := LoadPublicKey(keyRef)
+			require.NoError(t, err)
+			require.NotNil(t, key)
+
+			assert.Equal(t, "test@email.com::issuer", key.ID())
+		})
+		t.Run("fulcio invalid", func(t *testing.T) {
+			_, err := LoadPublicKey("fulcio:invalid")
+			assert.ErrorContains(t, err, "incorrect format for fulcio identity")
+		})
+	})
+
+	t.Run("gpg", func(t *testing.T) {
+		t.Run("invalid key", func(t *testing.T) {
+			_, err := LoadPublicKey("gpg:nonexistentkey123")
+			assert.Error(t, err)
+		})
+	})
+
+	t.Run("ssh", func(t *testing.T) {
+		t.Run("invalid path", func(t *testing.T) {
+			_, err := LoadPublicKey("/non/existent/path")
+			assert.Error(t, err)
+		})
+	})
+}
+
+func TestGetSigstoreOptions(t *testing.T) {
+	t.Run("full config", func(t *testing.T) {
+		storer := &gitstoretest.FakeStorer{Config: map[gitstore.ConfigKey]string{
+			gitstore.ConfigGitsignIssuer:      "issuer",
+			gitstore.ConfigGitsignClientID:    "client",
+			gitstore.ConfigGitsignFulcio:      "fulcio-url",
+			gitstore.ConfigGitsignRekor:       "rekor-url",
+			gitstore.ConfigGitsignRedirectURL: "redirect-url",
+		}}
+
+		opts, err := getSigstoreOptions(storer)
+		require.NoError(t, err)
+		require.Len(t, opts, 5)
+	})
+
+	t.Run("partial config", func(t *testing.T) {
+		storer := &gitstoretest.FakeStorer{Config: map[gitstore.ConfigKey]string{
+			gitstore.ConfigGitsignIssuer: "issuer",
+		}}
+
+		opts, err := getSigstoreOptions(storer)
+		require.NoError(t, err)
+		require.Len(t, opts, 1)
+	})
+
+	t.Run("empty config", func(t *testing.T) {
+		storer := &gitstoretest.FakeStorer{Config: map[gitstore.ConfigKey]string{}}
+
+		opts, err := getSigstoreOptions(storer)
+		require.NoError(t, err)
+		assert.Empty(t, opts)
+	})
+}

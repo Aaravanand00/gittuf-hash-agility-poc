@@ -1,0 +1,139 @@
+// Copyright The gittuf Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package rsl
+
+import "github.com/gittuf/gittuf/pkg/githash"
+
+type entryOptions struct {
+	customFields CustomFields
+}
+
+type EntryOption func(*entryOptions)
+
+// WithCustomFields adds custom fields to an RSL entry. The fields are copied so
+// subsequent changes to the supplied map do not affect the entry, and the entry
+// holds the only defensive copy. Supplying no fields is a no-op, so an entry
+// without custom fields keeps a nil map rather than an empty one. A key repeated
+// across multiple WithCustomFields options keeps its first value, matching how
+// the reader resolves repeated fields.
+//
+// Fields with an empty value are skipped: an empty value means the field is
+// absent, and the encoder drops it, so keeping it in the entry would report a
+// field as set that no commit ever carries.
+func WithCustomFields(fields CustomFields) EntryOption {
+	return func(o *entryOptions) {
+		for key, value := range fields {
+			if value == "" {
+				continue
+			}
+			if o.customFields == nil {
+				o.customFields = make(CustomFields, len(fields))
+			}
+			if _, exists := o.customFields[key]; exists {
+				continue
+			}
+			o.customFields[key] = value
+		}
+	}
+}
+
+type GetLatestReferenceUpdaterEntryOptions struct {
+	Reference string
+
+	BeforeEntryID     githash.Hash
+	BeforeEntryNumber uint64
+
+	UntilEntryID     githash.Hash
+	UntilEntryNumber uint64
+
+	Unskipped bool
+
+	NonGittuf bool
+
+	IsReferenceEntry                bool
+	IsPropagationEntryForRepository string
+}
+
+type GetLatestReferenceUpdaterEntryOption func(*GetLatestReferenceUpdaterEntryOptions)
+
+// ForReference indicates that the reference entry returned must be for a
+// specific Git reference.
+func ForReference(reference string) GetLatestReferenceUpdaterEntryOption {
+	return func(o *GetLatestReferenceUpdaterEntryOptions) {
+		o.Reference = reference
+	}
+}
+
+// BeforeEntryID searches for the matching reference entry before the specified
+// entry ID. It cannot be used in combination with BeforeEntryNumber.
+// BeforeEntryID is exclusive: the returned entry cannot be the reference entry
+// that matches the specified ID.
+func BeforeEntryID(entryID githash.Hash) GetLatestReferenceUpdaterEntryOption {
+	return func(o *GetLatestReferenceUpdaterEntryOptions) {
+		o.BeforeEntryID = entryID
+	}
+}
+
+// BeforeEntryNumber searches for the matching reference entry before the
+// specified entry number. It cannot be used in combination with BeforeEntryID.
+// BeforeEntryNumber is exclusive: the returned entry cannot be the reference
+// entry that matches the specified number.
+func BeforeEntryNumber(number uint64) GetLatestReferenceUpdaterEntryOption {
+	return func(o *GetLatestReferenceUpdaterEntryOptions) {
+		o.BeforeEntryNumber = number
+	}
+}
+
+// UntilEntryID terminates the search for the desired reference entry when an
+// entry with the specified ID is encountered. It cannot be used in combination
+// with UntilEntryNumber. UntilEntryID is inclusive: the returned entry can be
+// the entry that matches the specified ID.
+func UntilEntryID(entryID githash.Hash) GetLatestReferenceUpdaterEntryOption {
+	return func(o *GetLatestReferenceUpdaterEntryOptions) {
+		o.UntilEntryID = entryID
+	}
+}
+
+// UntilEntryNumber terminates the search for the desired reference entry when
+// an entry with the specified number is encountered. It cannot be used in
+// combination with UntilEntryID. UntilEntryNumber is inclusive: the returned
+// entry can be the entry that matches the specified number.
+func UntilEntryNumber(number uint64) GetLatestReferenceUpdaterEntryOption {
+	return func(o *GetLatestReferenceUpdaterEntryOptions) {
+		o.UntilEntryNumber = number
+	}
+}
+
+// IsUnskipped ensures that the returned reference entry has not been skipped by
+// a subsequent annotation entry.
+func IsUnskipped() GetLatestReferenceUpdaterEntryOption {
+	return func(o *GetLatestReferenceUpdaterEntryOptions) {
+		o.Unskipped = true
+	}
+}
+
+// ForNonGittufReference ensures that the returned reference entry is not for a
+// gittuf-specific reference.
+func ForNonGittufReference() GetLatestReferenceUpdaterEntryOption {
+	return func(o *GetLatestReferenceUpdaterEntryOptions) {
+		o.NonGittuf = true
+	}
+}
+
+// IsReferenceEntry ensures that the returned entry is a reference entry
+// specifically, rather than any entry type that matches the ReferenceUpdater
+// interface.
+func IsReferenceEntry() GetLatestReferenceUpdaterEntryOption {
+	return func(o *GetLatestReferenceUpdaterEntryOptions) {
+		o.IsReferenceEntry = true
+	}
+}
+
+// IsPropagationEntryForRepository ensures that the returned entry is a
+// propagation entry for the specified upstream repository.
+func IsPropagationEntryForRepository(repositoryLocation string) GetLatestReferenceUpdaterEntryOption {
+	return func(o *GetLatestReferenceUpdaterEntryOptions) {
+		o.IsPropagationEntryForRepository = repositoryLocation
+	}
+}

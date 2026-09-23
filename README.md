@@ -1,141 +1,41 @@
-# gittuf GAP-1 (Hash Agility) Proof of Concept
+<img src="https://raw.githubusercontent.com/gittuf/community/bd8b367fa91fab0fddaa1943e0131e90e04e6b10/artwork/PNG/gittuf_horizontal-color.png" alt="gittuf logo" width="25%"/>
 
-**Authors:** Aashish Pandit (GitHub: @imshubham22apr-gif), Aarav Anand, Aastha Priya  
-**Date:** September 2026  
-**Context:** Empirical evaluation of Git SHA-1 -> SHA-256 migration strategies in gittuf for maintainers (Paulo Gomes, Patrick Zielinski).  
-**Issue Tracking:** [gittuf/gittuf#104](https://github.com/gittuf/gittuf/issues/104) | [GAP-1 Specification](https://github.com/gittuf/gittuf/blob/main/docs/gaps/1/README.md)
+[![gittuf Verification](https://github.com/gittuf/gittuf/actions/workflows/gittuf-verify.yml/badge.svg)](https://github.com/gittuf/gittuf/actions/workflows/gittuf-verify.yml)
+![Build and Tests (CI)](https://github.com/gittuf/gittuf/actions/workflows/ci.yml/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/gittuf/gittuf/badge.svg)](https://coveralls.io/github/gittuf/gittuf)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/7789/badge)](https://www.bestpractices.dev/projects/7789)
+[![OpenSSF Baseline](https://www.bestpractices.dev/projects/7789/baseline)](https://www.bestpractices.dev/projects/7789)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/gittuf/gittuf/badge)](https://scorecard.dev/viewer/?uri=github.com/gittuf/gittuf)
 
----
+gittuf is a platform-agnostic Git security system. The maintainers of a Git
+repository can use gittuf to protect the contents of a Git repository from
+unauthorized or malicious changes. Most significantly, gittuf’s policy controls
+and enforcement is not tied to your source control platform (SCP) or “forge”,
+meaning any developer can independently verify that a repository’s changes
+followed the expected security policies. In other words, gittuf removes the
+forge as a single point of trust in the software supply chain!
 
-## 1. Executive Summary
+gittuf is an incubating project at the [Open Source Security Foundation
+(OpenSSF)] as part of the [Supply Chain Integrity Working Group].
 
-Git is actively transitioning from SHA-1 to SHA-256. Gittuf relies on signed metadata (the Reference State Log / RSL and TUF policies) containing embedded Git object hashes.
+## Current Status
 
-This Proof of Concept (PoC) evaluates three architectural solutions to hash agility:
+gittuf is currently in beta. gittuf's metadata is versioned, and updates should
+not require reinitializing a repository's gittuf policy. We recommend trying out
+gittuf in addition to existing repository security mechanisms you may already be
+using (e.g., forge security policies). We're actively seeking feedback from
+users, please open an issue with any suggestions or bugs you encounter!
 
-```
-                          +--------------------------+
-                          ¦   SHA-1 Git Repository   ¦
-                          ¦   (gittuf initialized)   ¦
-                          +--------------------------+
-                                        ¦
-                         [ Migration to SHA-256 Repo ]
-                                        ¦
-           +----------------------------+----------------------------+
-           ¦                            ¦                            ¦
-           ?                            ?                            ?
-  [ Approach A ]               [ Approach B ]               [ Approach C ]
-In-Memory Translation      Snapshot + Fresh Start       Cross-Signing Attestation
- (The Epoch System)         (Paulo's Route)              (The Provenance Bridge)
- ? REJECTED                ? PRIMARY RECOMMENDATION    ? OPTIONAL BRIDGE
- Signatures permanently     Clean epoch boundary, zero   in-toto DSSE statements
- break when translating     debt, anchored to Rekor      attest hash equivalence
-```
+## Installation, Get Started, Get Involved
 
----
+Take a look at the [get started guide] to learn how to install and try gittuf
+out! Additionally, contributions are welcome, please refer to the [contributing
+guide], our [roadmap], and the issue tracker for ways to get involved. In
+addition, you can join the gittuf channel on the [OpenSSF Slack] and say hello! 
 
-## 2. Approach Analysis & Empirical Results
-
-### Approach A: In-Memory Translation Layer (The Epoch System)
-* **Design:** Retain SHA-1 metadata unchanged and dynamically translate hashes to SHA-256 in memory via Git's `compatObjectFormat`.
-* **Empirical Result:** ? **REJECTED.**
-* **Root Cause:** In Gittuf, RSL Reference Entries are **signed Git commit objects** where the `targetID: <sha1_hash>` is serialized directly into the commit message. Even if object lookups are mapped dynamically in-memory, **digital signature verification permanently fails** because the signed commit text contains the original SHA-1 hex string. Modifying the text invalidates the cryptographic signature.
-
-### Approach B: Freeze + Snapshot + Fresh Start (Paulo's Path)
-* **Design:** Treat migration as a hard epoch boundary.
-  1. Freeze the SHA-1 repository.
-  2. Compute a deterministic Merkle-style chain hash over all historical RSL entries.
-  3. Export and sign a `SnapshotManifest` anchored to a transparency log (Sigstore / Rekor).
-  4. Initialize fresh Gittuf metadata in the SHA-256 repository.
-* **Empirical Result:** ? **RECOMMENDED AS PRIMARY STRATEGY.**
-* **Strengths:** Cleanest codebase, zero runtime translation overhead, zero technical debt. The `pkg/gitinterface.Hash` type is already forward-compatible.
-
-### Approach C: Cross-Signing in-toto Attestations (The Bridge)
-* **Design:** Leverage Gittuf's native `internal/attestations` subsystem (`refs/gittuf/attestations`).
-  1. Maintainers sign an in-toto DSSE statement declaring cryptographic equivalence between pre-migration SHA-1 commits and post-migration SHA-256 commits.
-  2. The verifier queries this attestation when traversing historical commits.
-* **Empirical Result:** ? **VIABLE & COMPLEMENTARY.**
-* **Strengths:** Preserves historical signatures 100% intact while enabling unbroken provenance across the hash boundary.
-
----
-
-## 3. Running the PoC Locally
-
-To execute all three experimental paths and view the live findings report:
-
-```bash
-go run .
-# Or run test suite:
-go test -v .
-```
-
-### Execution Output Summary
-* **Phase 1:** Initializes dummy SHA-1 repo with 3 commits and logs 3 RSL entries.
-* **Phase 2:** Converts to SHA-256 repo and captures native object resolution failure (`fatal: Not a valid object name`).
-* **Phase 3:** Tests Approach A (translation) and documents signature breakdown.
-* **Phase 4:** Tests Approach B (snapshot) and produces `snapshot-manifest.json`.
-* **Phase 5:** Tests Approach C (attestations) and produces `hash-equivalence-attestation.json`.
-
----
-
-## 4. Codebase Audit Findings
-
-| File / Component | Status | Impact on Migration |
-| :--- | :---: | :--- |
-| `pkg/gitinterface/hash.go:57` | `NewHash()` accepts 40-char (SHA-1) and 64-char (SHA-256) | **Forward-compatible:** Core hash abstraction is already algorithm-agnostic. |
-| `pkg/gitinterface/hash.go:52` | `ZeroHash` is hardcoded to 20 zero bytes (SHA-1) | **Action item:** Must be updated to be repository-format aware. |
-| `internal/rsl/rsl.go` | RSL commit messages contain `targetID: <hash>` in signed text | **Key finding:** Confirms why translation layer cannot preserve signatures. |
-| `pkg/gitinterface/commit.go:67` | `CommitUsingSpecificKey` uses `go-git` v5 (SHA-1 only) | **Action item:** Use Git CLI signing or upgrade to `go-git` v6 for SHA-256. |
-| `internal/attestations/authorization.go:140` | `ReferenceAuthorizationPath()` embeds hash hex in tree paths | **Action item:** Must decouple path parser from fixed SHA-1 length. |
-
----
-
-## 5. Artifact Schemas
-
-### Snapshot Manifest (`snapshot-manifest.json`)
-```json
-{
-  "schema_version": "gap1-poc-v1",
-  "frozen_at": "2026-09-10T13:30:40Z",
-  "sha1_repo_head": "e9afffcce72f4dad92289589f980d5840b4d100b",
-  "rsl_tip": "d00b97620b6dfcea58d32bc18415d5aac41f9c13",
-  "rsl_entries": 3,
-  "rsl_chain_merkle_hash": "ae385e9bbfc57e9f3ca375de9e1fa0b4b85e3a67827c58f0c61a44ea3af7a9bb",
-  "migration_note": "Repository frozen for SHA-1->SHA-256 migration. Old history verifiable via this manifest.",
-  "signed_by": "maintainer-key"
-}
-```
-
-### In-Toto Hash Equivalence Attestation (`hash-equivalence-attestation.json`)
-```json
-{
-  "payloadType": "application/vnd.in-toto+json",
-  "payload": "eyJfdHlwZSI6ICJodHRwczovL2luLXRvdG8uaW8vU3RhdGVtZW50L3YxIiwgInByZWRpY2F0ZVR5cGUiOiAiaHR0cHM6Ly9naXR0dWYuZGV2L3ByZWRpY2F0ZS9oYXNoLWVxdWl2YWxlbmNlL3YxIn0...",
-  "signatures": [
-    {
-      "keyid": "root-maintainer-key-1",
-      "sig": "5a7f920bc8b603..."
-    }
-  ]
-}
-```
-
----
-
-## 6. Recommended Action Plan for GAP-1
-
-1. **Adopt Approach B as the canonical migration standard** for `gittuf migrate sha256`.
-2. **Support Approach C attestations** for enterprise repositories requiring cryptographic bridge verification across archives.
-3. Fix `ZeroHash` in `pkg/gitinterface/hash.go` to dynamically respect `core.repositoryformatversion`.
-
-## 7. Advanced Security Evaluations (Negative & Transparency Tests)
-
-To ensure production readiness and address strict enterprise security requirements, this repository includes two advanced evaluations beyond standard happy-path migrations:
-
-### 1. The Hacker Tamper Test (Negative Evaluation)
-* **Threat Model:** A malicious actor attempts to inject forged historical commits by mutating values inside `snapshot-manifest.json` (such as `rsl_chain_merkle_hash`).
-* **Evaluation:** The verification suite verifies that tampered values trigger a strict, immediate **fail-closed** rejection, preventing silent pass vulnerabilities.
-
-### 2. Privacy-Safe OID Commitment (Sigstore / Rekor Public Transparency Anchor)
-* **Privacy Challenge:** Public transparency logs must not expose sensitive enterprise branch names (e.g. `secret-feature-x`) or internal developer email addresses.
-* **Architecture:** Uses a zero-leakage `PrivacySafeRekorPayload` containing strictly cryptographic Object IDs (OIDs) and the Merkle root hash. External auditors can mathematically verify provenance without accessing private Git namespaces.
+[contributing guide]: /CONTRIBUTING.md
+[roadmap]: /docs/roadmap.md
+[Open Source Security Foundation (OpenSSF)]: https://openssf.org/
+[Supply Chain Integrity Working Group]: https://github.com/ossf/wg-supply-chain-integrity
+[get started guide]: /docs/get-started.md
+[OpenSSF Slack]: https://slack.openssf.org/

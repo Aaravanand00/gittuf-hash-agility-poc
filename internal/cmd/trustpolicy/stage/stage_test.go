@@ -1,0 +1,61 @@
+// Copyright The gittuf Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package stage
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/gittuf/gittuf/experimental/gittuf"
+	rootopts "github.com/gittuf/gittuf/experimental/gittuf/options/root"
+	"github.com/gittuf/gittuf/internal/cmd"
+	artifacts "github.com/gittuf/gittuf/internal/testartifacts"
+	"github.com/gittuf/gittuf/pkg/gitinterface"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestStage(t *testing.T) {
+	t.Run("no repository", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		cwd, err := os.Getwd()
+		require.NoError(t, err)
+		defer os.Chdir(cwd) //nolint:errcheck
+
+		require.NoError(t, os.Chdir(tmpDir))
+
+		_, _, _, err = cmd.ExecuteCommandC(New(), "--local-only")
+		assert.ErrorContains(t, err, "not a git repository")
+	})
+
+	t.Run("success local-only", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		gitinterface.CreateTestGitRepository(t, tmpDir, false)
+
+		keyPath := filepath.Join(tmpDir, "test-key")
+		require.NoError(t, os.WriteFile(keyPath, artifacts.SSHED25519Private, 0o600))
+		require.NoError(t, os.WriteFile(keyPath+".pub", artifacts.SSHED25519PublicSSH, 0o600))
+
+		cwd, err := os.Getwd()
+		require.NoError(t, err)
+		defer os.Chdir(cwd) //nolint:errcheck
+
+		require.NoError(t, os.Chdir(tmpDir))
+
+		repo, err := gittuf.LoadRepository(".")
+		require.NoError(t, err)
+
+		signer, err := gittuf.LoadSigner(repo, keyPath)
+		require.NoError(t, err)
+
+		// Initialize root and generate policy-staging ref
+		require.NoError(t, repo.InitializeRoot(t.Context(), signer, false, rootopts.WithRSLEntry()))
+
+		// Stage the policy changes locally
+		_, _, _, err = cmd.ExecuteCommandC(New(), "--local-only")
+		assert.NoError(t, err)
+	})
+}

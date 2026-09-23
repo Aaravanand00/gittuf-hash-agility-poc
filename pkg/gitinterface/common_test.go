@@ -1,0 +1,96 @@
+// Copyright The gittuf Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package gitinterface
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/gittuf/gittuf/internal/signerverifier/gitobject"
+	artifacts "github.com/gittuf/gittuf/internal/testartifacts"
+	"github.com/gittuf/gittuf/pkg/gitstore"
+	"github.com/secure-systems-lab/go-securesystemslib/signerverifier"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestCreateTestGitRepository(t *testing.T) {
+	t.Run("configures test identity and signing key", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		signingKeysDir := t.TempDir()
+
+		repo, err := createTestGitRepository(tmpDir, signingKeysDir, false)
+		require.Nil(t, err)
+
+		name, _, err := repo.LookupConfig(gitstore.ConfigUserName)
+		require.Nil(t, err)
+		assert.Equal(t, testName, name)
+		email, _, err := repo.LookupConfig(gitstore.ConfigUserEmail)
+		require.Nil(t, err)
+		assert.Equal(t, testEmail, email)
+		signingKey, _, err := repo.LookupConfig(gitstore.ConfigUserSigningKey)
+		require.Nil(t, err)
+		assert.Equal(t, filepath.Join(signingKeysDir, "key.pub"), signingKey)
+		format, _, err := repo.LookupConfig(gitstore.ConfigGPGFormat)
+		require.Nil(t, err)
+		assert.Equal(t, "ssh", format)
+	})
+
+	t.Run("invalid object format", func(t *testing.T) {
+		_, err := createTestGitRepository(t.TempDir(), t.TempDir(), false, WithObjectFormat("bogus"))
+		assert.Error(t, err)
+	})
+
+	t.Run("invalid signing keys directory", func(t *testing.T) {
+		signingKeysDir := filepath.Join(t.TempDir(), "keys")
+		require.Nil(t, os.WriteFile(signingKeysDir, nil, 0o600))
+
+		_, err := createTestGitRepository(t.TempDir(), signingKeysDir, false)
+		assert.Error(t, err)
+	})
+}
+
+func TestWriteSigningKeys(t *testing.T) {
+	t.Run("writes rsa key pair", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		require.Nil(t, writeSigningKeys(tmpDir))
+
+		privateKey, err := os.ReadFile(filepath.Join(tmpDir, "key"))
+		require.Nil(t, err)
+		assert.Equal(t, artifacts.SSHRSAPrivate, privateKey)
+
+		publicKey, err := os.ReadFile(filepath.Join(tmpDir, "key.pub"))
+		require.Nil(t, err)
+		assert.Equal(t, artifacts.SSHRSAPublicSSH, publicKey)
+	})
+
+	t.Run("private key write error", func(t *testing.T) {
+		keysDir := filepath.Join(t.TempDir(), "keys")
+		require.Nil(t, os.WriteFile(keysDir, nil, 0o600))
+
+		assert.Error(t, writeSigningKeys(keysDir))
+	})
+
+	t.Run("public key write error", func(t *testing.T) {
+		keysDir := t.TempDir()
+		require.Nil(t, os.Mkdir(filepath.Join(keysDir, "key.pub"), 0o700))
+
+		assert.Error(t, writeSigningKeys(keysDir))
+	})
+}
+
+// verifyObjectSignature verifies an object's signature the way callers now
+// compose it: extract payload and signature from the repository, verify the
+// bytes with gitobject.
+func verifyObjectSignature(t *testing.T, repo *Repository, objectID Hash, key *signerverifier.SSLibKey) error {
+	t.Helper()
+
+	payload, signature, err := repo.GetObjectSignature(objectID)
+	require.Nil(t, err)
+
+	return gitobject.Verify(context.Background(), key, payload, signature)
+}
