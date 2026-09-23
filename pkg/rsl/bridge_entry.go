@@ -21,12 +21,12 @@ const (
 	GenesisBridgeEntryHeader = "RSL Genesis Bridge Entry"
 
 	// Keys used in the GenesisBridgeEntry message.
-	PriorEpochHashAlgoKey   = "priorEpochHashAlgo"
-	PriorEpochRSLTipKey     = "priorEpochRSLTip"
-	PriorEpochHeadOIDKey    = "priorEpochHeadOID"
-	CurrentEpochHeadOIDKey  = "currentEpochHeadOID"
-	CommitmentDigestKey     = "commitmentDigest"
-	FrozenTimestampKey      = "frozenTimestamp"
+	PriorEpochHashAlgoKey  = "priorEpochHashAlgo"
+	PriorEpochRSLTipKey    = "priorEpochRSLTip"
+	PriorEpochHeadOIDKey   = "priorEpochHeadOID"
+	CurrentEpochHeadOIDKey = "currentEpochHeadOID"
+	CommitmentDigestKey    = "commitmentDigest"
+	FrozenTimestampKey     = "frozenTimestamp"
 )
 
 var (
