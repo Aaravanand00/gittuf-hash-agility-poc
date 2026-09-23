@@ -10,12 +10,14 @@ import (
 	"github.com/gittuf/gittuf/experimental/gittuf"
 	"github.com/gittuf/gittuf/internal/cmd/addhooks"
 	"github.com/gittuf/gittuf/internal/cmd/attest"
+	"github.com/gittuf/gittuf/internal/cmd/bridge"
 	"github.com/gittuf/gittuf/internal/cmd/cache"
 	"github.com/gittuf/gittuf/internal/cmd/clone"
 	"github.com/gittuf/gittuf/internal/cmd/policy"
 	"github.com/gittuf/gittuf/internal/cmd/policy/persistent"
 	"github.com/gittuf/gittuf/internal/cmd/profile"
 	"github.com/gittuf/gittuf/internal/cmd/rsl"
+	"github.com/gittuf/gittuf/internal/cmd/snapshot"
 	"github.com/gittuf/gittuf/internal/cmd/sync"
 	"github.com/gittuf/gittuf/internal/cmd/trust"
 	"github.com/gittuf/gittuf/internal/cmd/tui"
@@ -118,6 +120,8 @@ func New() *cobra.Command {
 	cmd.AddCommand(trust.New())
 	cmd.AddCommand(policy.New())
 	cmd.AddCommand(rsl.New())
+	cmd.AddCommand(snapshot.New())
+	cmd.AddCommand(bridge.New())
 	cmd.AddCommand(sync.New())
 	cmd.AddCommand(verifymergeable.New())
 	cmd.AddCommand(verifynetwork.New())
