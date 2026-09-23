@@ -1175,6 +1175,12 @@ func parseRSLEntryText(id githash.Hash, text string) (Entry, error) {
 			return nil, err
 		}
 		return entry, nil
+	case strings.HasPrefix(text, GenesisBridgeEntryHeader):
+		entry, err := parseGenesisBridgeEntryText(id, text)
+		if err != nil {
+			return nil, err
+		}
+		return entry, nil
 	default:
 		return nil, ErrInvalidRSLEntry
 	}
