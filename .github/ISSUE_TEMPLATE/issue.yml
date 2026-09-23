@@ -1,0 +1,29 @@
+name: Discussion / Feature Request
+description: Open a discussion for gittuf workflows or a feature request
+labels: ["discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file this issue!
+  - type: textarea
+    id: Description
+    attributes:
+      label: Add a description
+      description: Please provide some details about what you'd like to discuss. If relevant, please include the version or revision of gittuf.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output if the discussion pertains to existing gittuf functionality
+      description: Please copy and paste the stack trace if it's available. This will be automatically formatted into code, so no need for backticks.
+      render: Shell
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/gittuf/community/blob/main/CODE-OF-CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

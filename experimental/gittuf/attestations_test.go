@@ -1,0 +1,653 @@
+// Copyright The gittuf Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package gittuf
+
+import (
+	"fmt"
+	"net/url"
+	"os"
+	"strings"
+	"testing"
+
+	attestopts "github.com/gittuf/gittuf/experimental/gittuf/options/attest"
+	githubopts "github.com/gittuf/gittuf/experimental/gittuf/options/github"
+	rslopts "github.com/gittuf/gittuf/experimental/gittuf/options/rsl"
+	"github.com/gittuf/gittuf/internal/attestations"
+	"github.com/gittuf/gittuf/internal/attestations/authorizations"
+	authorizationsv01 "github.com/gittuf/gittuf/internal/attestations/authorizations/v01"
+	"github.com/gittuf/gittuf/internal/attestations/github"
+	githubv01 "github.com/gittuf/gittuf/internal/attestations/github/v01"
+	"github.com/gittuf/gittuf/internal/common"
+	"github.com/gittuf/gittuf/internal/common/set"
+	artifacts "github.com/gittuf/gittuf/internal/testartifacts"
+	"github.com/gittuf/gittuf/internal/third_party/go-securesystemslib/dsse"
+	"github.com/gittuf/gittuf/pkg/gitinterface"
+	"github.com/gittuf/gittuf/pkg/rsl"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestApplyAttestations(t *testing.T) {
+	remoteName := "origin"
+	testDir := t.TempDir()
+	r := gitinterface.CreateTestGitRepository(t, testDir, false)
+	repo := &Repository{r: r}
+
+	fromRef := "refs/heads/main"
+	targetTagRef := "refs/tags/v1"
+
+	treeBuilder := gitinterface.NewTreeBuilder(repo.r)
+	emptyTreeID, err := treeBuilder.WriteTreeFromEntries(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initialCommitID, err := repo.r.Commit(emptyTreeID, fromRef, "Initial commit\n", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.RecordRSLEntryForReference(testCtx, fromRef, false, rslopts.WithRecordLocalOnly()); err != nil {
+		t.Fatal(err)
+	}
+
+	signer := setupSSHKeysForSigning(t, rootKeyBytes, rootPubKeyBytes)
+
+	if err := repo.AddReferenceAuthorization(testCtx, signer, targetTagRef, fromRef, false); err != nil {
+		t.Fatal(err)
+	}
+
+	attestationsCommitID, err := repo.r.GetReference(attestations.Ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err = rsl.GetLatestReferenceUpdaterEntry(repo.r, rsl.ForReference(attestations.Ref))
+	assert.ErrorIs(t, err, rsl.ErrRSLEntryNotFound)
+
+	err = repo.ApplyAttestations(testCtx, "", true, false)
+	assert.NoError(t, err)
+
+	entry, _, err := rsl.GetLatestReferenceUpdaterEntry(repo.r, rsl.ForReference(attestations.Ref))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, attestations.Ref, entry.GetRefName())
+	assert.Equal(t, attestationsCommitID, entry.GetTargetID())
+
+	allAttestations, err := attestations.LoadCurrentAttestations(repo.r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := allAttestations.GetReferenceAuthorizationFor(repo.r, targetTagRef, gitinterface.ZeroHash.String(), initialCommitID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Len(t, env.Signatures, 1)
+
+	t.Run("miscellaneous error checking", func(t *testing.T) {
+		tempDir := t.TempDir()
+		repo := gitinterface.CreateTestGitRepository(t, tempDir, false)
+		nr := &Repository{r: repo}
+
+		// Test signCommit
+		err := repo.SetGitConfig("user.signingkey", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = nr.ApplyAttestations(testCtx, remoteName, false, true)
+		assert.ErrorIs(t, err, gitinterface.ErrSigningKeyNotSpecified)
+	})
+}
+
+func TestAddAndRemoveReferenceAuthorization(t *testing.T) {
+	t.Run("for commit", func(t *testing.T) {
+		testDir := t.TempDir()
+		r := gitinterface.CreateTestGitRepository(t, testDir, false)
+
+		// We need to change the directory for this test because we `checkout`
+		// for older Git versions, modifying the worktree. This chdir ensures
+		// that the temporary directory is used as the worktree.
+		pwd, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chdir(testDir); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chdir(pwd) //nolint:errcheck
+
+		repo := &Repository{r: r}
+
+		targetRef := "main"
+		absTargetRef := "refs/heads/main"
+		featureRef := "feature"
+		absFeatureRef := "refs/heads/feature"
+
+		// Create common base for main and feature branches
+		treeBuilder := gitinterface.NewTreeBuilder(repo.r)
+		emptyTreeID, err := treeBuilder.WriteTreeFromEntries(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		initialCommitID, err := repo.r.Commit(emptyTreeID, absTargetRef, "Initial commit\n", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.r.SetReference(absFeatureRef, initialCommitID); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create main branch as the target branch with a Git commit
+		// Add a single commit
+		commitIDs := common.AddNTestCommitsToSpecifiedRef(t, r, absTargetRef, 1, gpgKeyBytes)
+		fromCommitID := commitIDs[0]
+		if err := repo.RecordRSLEntryForReference(testCtx, targetRef, false, rslopts.WithRecordLocalOnly()); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create feature branch with two Git commits
+		// Add two commits
+		commitIDs = common.AddNTestCommitsToSpecifiedRef(t, r, absFeatureRef, 2, gpgKeyBytes)
+		featureCommitID := commitIDs[1]
+		if err := repo.RecordRSLEntryForReference(testCtx, featureRef, false, rslopts.WithRecordLocalOnly()); err != nil {
+			t.Fatal(err)
+		}
+
+		targetTreeID, err := r.GetMergeTree(fromCommitID, featureCommitID)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Create signers
+		firstSigner := setupSSHKeysForSigning(t, rootKeyBytes, rootPubKeyBytes)
+		firstKeyID, err := firstSigner.KeyID()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		secondSigner := setupSSHKeysForSigning(t, targetsKeyBytes, targetsPubKeyBytes)
+		secondKeyID, err := secondSigner.KeyID()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// First authorization attestation signature
+		err = repo.AddReferenceAuthorization(testCtx, firstSigner, absTargetRef, absFeatureRef, false, attestopts.WithRSLEntry())
+		assert.NoError(t, err)
+
+		allAttestations, err := attestations.LoadCurrentAttestations(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		env, err := allAttestations.GetReferenceAuthorizationFor(r, absTargetRef, fromCommitID.String(), targetTreeID.String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Len(t, env.Signatures, 1)
+		assert.Equal(t, firstKeyID, env.Signatures[0].KeyID)
+
+		// Second authorization attestation signature
+		err = repo.AddReferenceAuthorization(testCtx, secondSigner, absTargetRef, absFeatureRef, false, attestopts.WithRSLEntry())
+		assert.NoError(t, err)
+
+		allAttestations, err = attestations.LoadCurrentAttestations(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		env, err = allAttestations.GetReferenceAuthorizationFor(r, absTargetRef, fromCommitID.String(), targetTreeID.String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Len(t, env.Signatures, 2)
+		assert.Equal(t, firstKeyID, env.Signatures[0].KeyID)
+		assert.Equal(t, secondKeyID, env.Signatures[1].KeyID)
+
+		// Remove second authorization attestation signature
+		err = repo.RemoveReferenceAuthorization(testCtx, secondSigner, absTargetRef, fromCommitID.String(), targetTreeID.String(), false, attestopts.WithRSLEntry())
+		assert.NoError(t, err)
+
+		allAttestations, err = attestations.LoadCurrentAttestations(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		env, err = allAttestations.GetReferenceAuthorizationFor(r, absTargetRef, fromCommitID.String(), targetTreeID.String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Len(t, env.Signatures, 1)
+		assert.Equal(t, firstKeyID, env.Signatures[0].KeyID)
+	})
+
+	t.Run("for tag", func(t *testing.T) {
+		testDir := t.TempDir()
+		r := gitinterface.CreateTestGitRepository(t, testDir, false)
+
+		// We need to change the directory for this test because we `checkout`
+		// for older Git versions, modifying the worktree. This chdir ensures
+		// that the temporary directory is used as the worktree.
+		pwd, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chdir(testDir); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chdir(pwd) //nolint:errcheck
+
+		repo := &Repository{r: r}
+
+		fromRef := "refs/heads/main"
+		targetTagRef := "refs/tags/v1"
+
+		// Create common base for main and feature branches
+		treeBuilder := gitinterface.NewTreeBuilder(repo.r)
+		emptyTreeID, err := treeBuilder.WriteTreeFromEntries(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		initialCommitID, err := repo.r.Commit(emptyTreeID, fromRef, "Initial commit\n", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.RecordRSLEntryForReference(testCtx, fromRef, false, rslopts.WithRecordLocalOnly()); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create signer
+		signer := setupSSHKeysForSigning(t, rootKeyBytes, rootPubKeyBytes)
+		keyID, err := signer.KeyID()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = repo.AddReferenceAuthorization(testCtx, signer, targetTagRef, fromRef, false, attestopts.WithRSLEntry(), attestopts.WithRSLEntry())
+		assert.NoError(t, err)
+
+		allAttestations, err := attestations.LoadCurrentAttestations(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		env, err := allAttestations.GetReferenceAuthorizationFor(repo.r, targetTagRef, gitinterface.ZeroHash.String(), initialCommitID.String())
+		assert.NoError(t, err)
+		assert.Len(t, env.Signatures, 1)
+		assert.Equal(t, keyID, env.Signatures[0].KeyID)
+
+		// Create tag
+		_, err = repo.r.TagUsingSpecificKey(initialCommitID, strings.TrimPrefix(targetTagRef, gitinterface.TagRefPrefix), "v1", artifacts.SSHRSAPrivate)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Add it to RSL
+		if err := repo.RecordRSLEntryForReference(testCtx, targetTagRef, false, rslopts.WithRecordLocalOnly()); err != nil {
+			t.Fatal(err)
+		}
+
+		// Trying to approve it now fails as we're approving a tag already seen in the RSL
+		err = repo.AddReferenceAuthorization(testCtx, signer, targetTagRef, fromRef, false, attestopts.WithRSLEntry())
+		assert.ErrorIs(t, err, gitinterface.ErrTagAlreadyExists)
+
+		err = repo.RemoveReferenceAuthorization(testCtx, signer, targetTagRef, gitinterface.ZeroHash.String(), initialCommitID.String(), false, attestopts.WithRSLEntry())
+		assert.NoError(t, err)
+
+		allAttestations, err = attestations.LoadCurrentAttestations(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = allAttestations.GetReferenceAuthorizationFor(repo.r, targetTagRef, gitinterface.ZeroHash.String(), initialCommitID.String())
+		assert.ErrorIs(t, err, authorizations.ErrAuthorizationNotFound)
+	})
+
+	t.Run("miscellaneous error checking", func(t *testing.T) {
+		tempDir := t.TempDir()
+		repo := gitinterface.CreateTestGitRepository(t, tempDir, false)
+		nr := &Repository{r: repo}
+
+		targetsSigner := setupSSHKeysForSigning(t, targetsKeyBytes, targetsPubKeyBytes)
+
+		// Test signCommit
+		err := repo.SetGitConfig("user.signingkey", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = nr.AddReferenceAuthorization(testCtx, nil, "", "", true)
+		assert.ErrorIs(t, err, gitinterface.ErrSigningKeyNotSpecified)
+
+		err = nr.RemoveReferenceAuthorization(testCtx, nil, "", "", "", true)
+		assert.ErrorIs(t, err, gitinterface.ErrSigningKeyNotSpecified)
+
+		// Test nonexistent target ref
+		err = nr.AddReferenceAuthorization(testCtx, nil, "nonexistent", "", false)
+		assert.ErrorIs(t, err, gitinterface.ErrReferenceNotFound)
+
+		err = nr.RemoveReferenceAuthorization(testCtx, targetsSigner, "nonexistent", "", "", false)
+		assert.ErrorIs(t, err, gitinterface.ErrReferenceNotFound)
+	})
+}
+
+func TestAddGitHubPullRequestAttestationForCommit(t *testing.T) {
+	t.Run("miscellaneous error checking", func(t *testing.T) {
+		tempDir := t.TempDir()
+		repo := gitinterface.CreateTestGitRepository(t, tempDir, false)
+		nr := &Repository{r: repo}
+
+		// Test signCommit
+		err := repo.SetGitConfig("user.signingkey", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = nr.AddGitHubPullRequestAttestationForCommit(testCtx, nil, "", "", "", "", true)
+		assert.ErrorIs(t, err, gitinterface.ErrSigningKeyNotSpecified)
+
+		// Test no GitHub token
+		err = nr.AddGitHubPullRequestAttestationForCommit(testCtx, nil, "", "", "", "", false)
+		assert.ErrorIs(t, err, ErrNoGitHubToken)
+	})
+}
+
+func TestAddGitHubPullRequestAttestationForNumber(t *testing.T) {
+	t.Run("miscellaneous error checking", func(t *testing.T) {
+		tempDir := t.TempDir()
+		repo := gitinterface.CreateTestGitRepository(t, tempDir, false)
+		nr := &Repository{r: repo}
+
+		// Test signCommit
+		err := repo.SetGitConfig("user.signingkey", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = nr.AddGitHubPullRequestAttestationForNumber(testCtx, nil, "", "", 1, true)
+		assert.ErrorIs(t, err, gitinterface.ErrSigningKeyNotSpecified)
+
+		// Test no GitHub token
+		err = nr.AddGitHubPullRequestAttestationForNumber(testCtx, nil, "", "", 1, false)
+		assert.ErrorIs(t, err, ErrNoGitHubToken)
+	})
+}
+
+func TestAddGitHubPullRequestApprover(t *testing.T) {
+	t.Run("miscellaneous error checking", func(t *testing.T) {
+		tempDir := t.TempDir()
+		repo := gitinterface.CreateTestGitRepository(t, tempDir, false)
+		nr := &Repository{r: repo}
+
+		targetsSigner := setupSSHKeysForSigning(t, targetsKeyBytes, targetsPubKeyBytes)
+
+		// Test signCommit
+		err := repo.SetGitConfig("user.signingkey", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = nr.AddGitHubPullRequestApprover(testCtx, nil, "", "", 1, 1, "", true)
+		assert.ErrorIs(t, err, gitinterface.ErrSigningKeyNotSpecified)
+
+		// Test no GitHub token
+		err = nr.AddGitHubPullRequestApprover(testCtx, targetsSigner, "", "", 1, 1, "", false)
+		assert.ErrorIs(t, err, ErrNoGitHubToken)
+	})
+}
+
+func TestDismissGitHubPullRequestApprover(t *testing.T) {
+	t.Run("miscellaneous error checking", func(t *testing.T) {
+		tempDir := t.TempDir()
+		repo := gitinterface.CreateTestGitRepository(t, tempDir, false)
+		nr := &Repository{r: repo}
+
+		targetsSigner := setupSSHKeysForSigning(t, targetsKeyBytes, targetsPubKeyBytes)
+
+		// Test signCommit
+		err := repo.SetGitConfig("user.signingkey", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = nr.DismissGitHubPullRequestApprover(testCtx, nil, 1, "", true)
+		assert.ErrorIs(t, err, gitinterface.ErrSigningKeyNotSpecified)
+
+		// Test non-existent review
+		err = nr.DismissGitHubPullRequestApprover(testCtx, targetsSigner, 1, "", false)
+		assert.ErrorIs(t, err, github.ErrGitHubReviewIDNotFound)
+	})
+}
+
+func TestAddReferenceAuthorizationForNewTagZeroHashFormat(t *testing.T) {
+	for _, objectFormat := range testObjectFormats {
+		t.Run(string(objectFormat), func(t *testing.T) {
+			testDir := t.TempDir()
+			r := gitinterface.CreateTestGitRepository(t, testDir, false, gitinterface.WithObjectFormat(objectFormat))
+
+			// We need to change the directory because we `checkout` for older
+			// Git versions, modifying the worktree.
+			pwd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chdir(testDir); err != nil {
+				t.Fatal(err)
+			}
+			defer os.Chdir(pwd) //nolint:errcheck
+
+			repo := &Repository{r: r}
+
+			fromRef := "refs/heads/main"
+			targetTagRef := "refs/tags/v1"
+
+			treeBuilder := gitinterface.NewTreeBuilder(repo.r)
+			emptyTreeID, err := treeBuilder.WriteTreeFromEntries(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			initialCommitID, err := repo.r.Commit(emptyTreeID, fromRef, "Initial commit\n", false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.RecordRSLEntryForReference(testCtx, fromRef, false, rslopts.WithRecordLocalOnly()); err != nil {
+				t.Fatal(err)
+			}
+
+			signer := setupSSHKeysForSigning(t, rootKeyBytes, rootPubKeyBytes)
+
+			// AddReferenceAuthorization calls r.r.ZeroHash() for the tag's fromID.
+			err = repo.AddReferenceAuthorization(testCtx, signer, targetTagRef, fromRef, false, attestopts.WithRSLEntry())
+			assert.NoError(t, err)
+
+			allAttestations, err := attestations.LoadCurrentAttestations(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// The format-correct zero hash must retrieve the authorization.
+			formatZero := repo.r.ZeroHash().String()
+			env, err := allAttestations.GetReferenceAuthorizationFor(repo.r, targetTagRef, formatZero, initialCommitID.String())
+			assert.NoError(t, err)
+			assert.Len(t, env.Signatures, 1)
+
+			// On a SHA-256 repo, looking up with the SHA-1 zero (40 zeros)
+			// must NOT find the authorization, pinning width-consistency.
+			if objectFormat == gitinterface.ObjectFormatSHA256 {
+				sha1Zero := gitinterface.ZeroHash.String()
+				_, err = allAttestations.GetReferenceAuthorizationFor(repo.r, targetTagRef, sha1Zero, initialCommitID.String())
+				assert.ErrorIs(t, err, authorizations.ErrAuthorizationNotFound)
+			}
+		})
+	}
+}
+
+func TestGetGitHubPullRequestApprovalPredicateFromEnvelope(t *testing.T) {
+	tests := map[string]struct {
+		envelope          *dsse.Envelope
+		expectedPredicate *githubv01.PullRequestApprovalAttestation
+	}{
+		"one approver, no dismissals": {
+			envelope: &dsse.Envelope{
+				PayloadType: "application/vnd.gittuf+json",
+				Payload:     "eyJ0eXBlIjoiaHR0cHM6Ly9pbi10b3RvLmlvL1N0YXRlbWVudC92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJnaXRUcmVlIjoiZWUyNWIxYjZjMjc4NjJlYTFjYzQxOWMxNDQxMjcxMjNmZDZmNDdkMyJ9fV0sInByZWRpY2F0ZV90eXBlIjoiaHR0cHM6Ly9naXR0dWYuZGV2L2dpdGh1Yi1wdWxsLXJlcXVlc3QtYXBwcm92YWwvdjAuMSIsInByZWRpY2F0ZSI6eyJhcHByb3ZlcnMiOlsiYWxpY2UiXSwiZGlzbWlzc2VkQXBwcm92ZXJzIjpudWxsLCJmcm9tUmV2aXNpb25JRCI6IjJmNTkzZTMxOTVhNTk5ODM0MjNmNDVmZTZkNDMzNWYxNDhmZmVlY2YiLCJ0YXJnZXRSZWYiOiJyZWZzL2hlYWRzL21haW4iLCJ0YXJnZXRUcmVlSUQiOiJlZTI1YjFiNmMyNzg2MmVhMWNjNDE5YzE0NDEyNzEyM2ZkNmY0N2QzIn19Cg==",
+				Signatures: []dsse.Signature{
+					{
+						KeyID: "kid",
+						Sig:   "sig",
+					},
+				},
+			},
+			expectedPredicate: &githubv01.PullRequestApprovalAttestation{
+				Approvers: set.NewSetFromItems("alice"),
+				ReferenceAuthorization: &authorizationsv01.ReferenceAuthorization{
+					FromRevisionID: "2f593e3195a59983423f45fe6d4335f148ffeecf",
+					TargetRef:      "refs/heads/main",
+					TargetTreeID:   "ee25b1b6c27862ea1cc419c144127123fd6f47d3",
+				},
+			},
+		},
+		"one approver, one dismissal": {
+			envelope: &dsse.Envelope{
+				PayloadType: "application/vnd.gittuf+json",
+				Payload:     "eyJ0eXBlIjoiaHR0cHM6Ly9pbi10b3RvLmlvL1N0YXRlbWVudC92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJnaXRUcmVlIjoiZWUyNWIxYjZjMjc4NjJlYTFjYzQxOWMxNDQxMjcxMjNmZDZmNDdkMyJ9fV0sInByZWRpY2F0ZV90eXBlIjoiaHR0cHM6Ly9naXR0dWYuZGV2L2dpdGh1Yi1wdWxsLXJlcXVlc3QtYXBwcm92YWwvdjAuMSIsInByZWRpY2F0ZSI6eyJhcHByb3ZlcnMiOlsiYWxpY2UiXSwiZGlzbWlzc2VkQXBwcm92ZXJzIjpbImJvYiJdLCJmcm9tUmV2aXNpb25JRCI6IjJmNTkzZTMxOTVhNTk5ODM0MjNmNDVmZTZkNDMzNWYxNDhmZmVlY2YiLCJ0YXJnZXRSZWYiOiJyZWZzL2hlYWRzL21haW4iLCJ0YXJnZXRUcmVlSUQiOiJlZTI1YjFiNmMyNzg2MmVhMWNjNDE5YzE0NDEyNzEyM2ZkNmY0N2QzIn19Cg==",
+				Signatures: []dsse.Signature{
+					{
+						KeyID: "kid",
+						Sig:   "sig",
+					},
+				},
+			},
+			expectedPredicate: &githubv01.PullRequestApprovalAttestation{
+				Approvers:          set.NewSetFromItems("alice"),
+				DismissedApprovers: set.NewSetFromItems("bob"),
+				ReferenceAuthorization: &authorizationsv01.ReferenceAuthorization{
+					FromRevisionID: "2f593e3195a59983423f45fe6d4335f148ffeecf",
+					TargetRef:      "refs/heads/main",
+					TargetTreeID:   "ee25b1b6c27862ea1cc419c144127123fd6f47d3",
+				},
+			},
+		},
+		"no approvers, one dismissal": {
+			envelope: &dsse.Envelope{
+				PayloadType: "application/vnd.gittuf+json",
+				Payload:     "eyJ0eXBlIjoiaHR0cHM6Ly9pbi10b3RvLmlvL1N0YXRlbWVudC92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJnaXRUcmVlIjoiZWUyNWIxYjZjMjc4NjJlYTFjYzQxOWMxNDQxMjcxMjNmZDZmNDdkMyJ9fV0sInByZWRpY2F0ZV90eXBlIjoiaHR0cHM6Ly9naXR0dWYuZGV2L2dpdGh1Yi1wdWxsLXJlcXVlc3QtYXBwcm92YWwvdjAuMSIsInByZWRpY2F0ZSI6eyJhcHByb3ZlcnMiOm51bGwsImRpc21pc3NlZEFwcHJvdmVycyI6WyJib2IiXSwiZnJvbVJldmlzaW9uSUQiOiIyZjU5M2UzMTk1YTU5OTgzNDIzZjQ1ZmU2ZDQzMzVmMTQ4ZmZlZWNmIiwidGFyZ2V0UmVmIjoicmVmcy9oZWFkcy9tYWluIiwidGFyZ2V0VHJlZUlEIjoiZWUyNWIxYjZjMjc4NjJlYTFjYzQxOWMxNDQxMjcxMjNmZDZmNDdkMyJ9fQo=",
+				Signatures: []dsse.Signature{
+					{
+						KeyID: "kid",
+						Sig:   "sig",
+					},
+				},
+			},
+			expectedPredicate: &githubv01.PullRequestApprovalAttestation{
+				DismissedApprovers: set.NewSetFromItems("bob"),
+				ReferenceAuthorization: &authorizationsv01.ReferenceAuthorization{
+					FromRevisionID: "2f593e3195a59983423f45fe6d4335f148ffeecf",
+					TargetRef:      "refs/heads/main",
+					TargetTreeID:   "ee25b1b6c27862ea1cc419c144127123fd6f47d3",
+				},
+			},
+		},
+		"multiple approvers, multiple dismissals": {
+			envelope: &dsse.Envelope{
+				PayloadType: "application/vnd.gittuf+json",
+				Payload:     "eyJ0eXBlIjoiaHR0cHM6Ly9pbi10b3RvLmlvL1N0YXRlbWVudC92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJnaXRUcmVlIjoiZWUyNWIxYjZjMjc4NjJlYTFjYzQxOWMxNDQxMjcxMjNmZDZmNDdkMyJ9fV0sInByZWRpY2F0ZV90eXBlIjoiaHR0cHM6Ly9naXR0dWYuZGV2L2dpdGh1Yi1wdWxsLXJlcXVlc3QtYXBwcm92YWwvdjAuMSIsInByZWRpY2F0ZSI6eyJhcHByb3ZlcnMiOlsiYWxpY2UiLCJib2IiXSwiZGlzbWlzc2VkQXBwcm92ZXJzIjpbImFsaWNlIiwiYm9iIl0sImZyb21SZXZpc2lvbklEIjoiMmY1OTNlMzE5NWE1OTk4MzQyM2Y0NWZlNmQ0MzM1ZjE0OGZmZWVjZiIsInRhcmdldFJlZiI6InJlZnMvaGVhZHMvbWFpbiIsInRhcmdldFRyZWVJRCI6ImVlMjViMWI2YzI3ODYyZWExY2M0MTljMTQ0MTI3MTIzZmQ2ZjQ3ZDMifX0K",
+				Signatures: []dsse.Signature{
+					{
+						KeyID: "kid",
+						Sig:   "sig",
+					},
+				},
+			},
+			expectedPredicate: &githubv01.PullRequestApprovalAttestation{
+				Approvers:          set.NewSetFromItems("alice", "bob"),
+				DismissedApprovers: set.NewSetFromItems("alice", "bob"),
+				ReferenceAuthorization: &authorizationsv01.ReferenceAuthorization{
+					FromRevisionID: "2f593e3195a59983423f45fe6d4335f148ffeecf",
+					TargetRef:      "refs/heads/main",
+					TargetTreeID:   "ee25b1b6c27862ea1cc419c144127123fd6f47d3",
+				},
+			},
+		},
+	}
+
+	for name, test := range tests {
+		predicate, err := getGitHubPullRequestApprovalPredicateFromEnvelope(test.envelope)
+		assert.Nil(t, err, fmt.Sprintf("unexpected error in test '%s'", name))
+		assert.Equal(t, test.expectedPredicate, predicate, fmt.Sprintf("unexpected predicate in test '%s'", name))
+	}
+}
+
+func TestIndexPathToComponents(t *testing.T) {
+	tests := map[string]struct {
+		baseRef string
+		from    string
+		to      string
+	}{
+		"simple ref": {
+			baseRef: "refs/heads/main",
+			from:    gitinterface.ZeroHash.String(),
+			to:      gitinterface.ZeroHash.String(),
+		},
+		"complicated ref": {
+			baseRef: "refs/heads/jane.doe/feature-branch",
+			from:    gitinterface.ZeroHash.String(),
+			to:      gitinterface.ZeroHash.String(),
+		},
+	}
+
+	for name, test := range tests {
+		// construct indexPath programmatically to force breaking changes /
+		// regressions to be detected here
+		indexPath := attestations.GitHubPullRequestApprovalAttestationPath(test.baseRef, test.from, test.to)
+
+		baseRef, from, to := indexPathToComponents(indexPath)
+		assert.Equal(t, test.baseRef, baseRef, fmt.Sprintf("unexpected 'base ref' in test '%s'", name))
+		assert.Equal(t, test.from, from, fmt.Sprintf("unexpected 'from' in test '%s'", name))
+		assert.Equal(t, test.to, to, fmt.Sprintf("unexpected 'to' in test '%s'", name))
+	}
+}
+
+func TestGetGitHubClient(t *testing.T) {
+	t.Run("default baseURL keeps github.com endpoints", func(t *testing.T) {
+		client, err := getGitHubClient(githubopts.DefaultGitHubBaseURL, "test-token")
+		assert.NoError(t, err)
+		assert.NotNil(t, client)
+
+		// Default go-github BaseURL is api.github.com
+		assert.Equal(t, "https://api.github.com/", client.BaseURL.String())
+		assert.Equal(t, "https://uploads.github.com/", client.UploadURL.String())
+	})
+
+	t.Run("enterprise baseURL gets /api/v3 and /api/uploads paths", func(t *testing.T) {
+		client, err := getGitHubClient("https://github.example.com", "test-token")
+		assert.NoError(t, err)
+		assert.NotNil(t, client)
+
+		assert.Equal(t, "https://github.example.com/api/v3/", client.BaseURL.String())
+		assert.Equal(t, "https://github.example.com/api/uploads/", client.UploadURL.String())
+	})
+
+	t.Run("trailing slash in baseURL is normalized", func(t *testing.T) {
+		client, err := getGitHubClient("https://github.example.com/", "test-token")
+		assert.NoError(t, err)
+		assert.NotNil(t, client)
+
+		// Should produce the same paths as the no-trailing-slash case
+		assert.Equal(t, "https://github.example.com/api/v3/", client.BaseURL.String())
+		assert.Equal(t, "https://github.example.com/api/uploads/", client.UploadURL.String())
+	})
+
+	t.Run("invalid baseURL returns error", func(t *testing.T) {
+		_, err := getGitHubClient("://no-scheme", "test-token")
+		var urlErr *url.Error
+		assert.ErrorAs(t, err, &urlErr)
+	})
+
+	t.Run("empty token still produces a usable client", func(t *testing.T) {
+		// getGitHubClient itself doesn't enforce non-empty token;
+		// callers do (via ErrNoGitHubToken). This documents that behavior.
+		client, err := getGitHubClient(githubopts.DefaultGitHubBaseURL, "")
+		assert.NoError(t, err)
+		assert.NotNil(t, client)
+	})
+}

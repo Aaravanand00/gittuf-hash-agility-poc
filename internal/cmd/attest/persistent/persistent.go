@@ -1,0 +1,33 @@
+// Copyright The gittuf Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package persistent
+
+import (
+	"fmt"
+
+	"github.com/gittuf/gittuf/experimental/gittuf"
+	"github.com/spf13/cobra"
+)
+
+type Options struct {
+	SigningKey   string
+	WithRSLEntry bool
+}
+
+func (o *Options) AddPersistentFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVarP(
+		&o.SigningKey,
+		"signing-key",
+		"k",
+		"",
+		fmt.Sprintf("signing key to use to sign attestations (path to SSH key, \"%s<fingerprint>\" for GPG, \"%s\" for Sigstore)", gittuf.GPGKeyPrefix, gittuf.FulcioPrefix),
+	)
+
+	cmd.PersistentFlags().BoolVar(
+		&o.WithRSLEntry,
+		"create-rsl-entry",
+		false,
+		"create RSL entry for attestation change immediately (note: the new entry to the RSL will not be synced with the remote)",
+	)
+}
