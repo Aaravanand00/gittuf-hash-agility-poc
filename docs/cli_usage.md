@@ -85,5 +85,18 @@ The **`gittuf bridge`** command creates a *Genesis Bridge* entry that cryptograp
 
 ---
 
-## Adding these docs to the repo
-Place this file at `docs/cli_usage.md` and add a link to it from the repository’s `README.md` so newcomers can find it quickly.
+# 🚀 Automated End-to-End Migration Demo
+
+To see the complete SHA-1 to SHA-256 migration and continuous trust verification in action with a single command:
+
+```bash
+./examples/migrate_demo.sh
+```
+
+This automated demo:
+1. Generates ephemeral Ed25519 signing keys.
+2. Initializes a baseline SHA-1 repository with enforced Gittuf policies and RSL entries.
+3. Freezes repository state into a deterministic content-level SHA-256 snapshot manifest.
+4. Fast-exports Git objects into a fresh native SHA-256 repository.
+5. Constructs a Genesis Bridge binding the cryptographic epochs together.
+6. Runs full cryptographic verification of the snapshot manifest and Genesis Bridge.
