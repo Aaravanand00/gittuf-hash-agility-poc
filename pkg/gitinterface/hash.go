@@ -22,6 +22,14 @@ var (
 // Deprecated: use githash.Hash.
 type Hash = githash.Hash
 
+// HashAlgorithm represents a cryptographic hash algorithm used for Git object IDs.
+type HashAlgorithm = githash.HashAlgorithm
+
+const (
+	HashAlgoSHA1   = githash.HashAlgoSHA1
+	HashAlgoSHA256 = githash.HashAlgoSHA256
+)
+
 // ZeroHash represents an empty SHA-1 Hash. It is safe to use as an
 // error-return sentinel and in comparisons via Hash.IsZero (which matches both
 // SHA-1 and SHA-256 zero hashes). When the value is passed to Git or compared
