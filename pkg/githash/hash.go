@@ -63,6 +63,12 @@ func (h Hash) Bytes() []byte {
 	return h[:]
 }
 
+// Algorithm returns the cryptographic hash algorithm that produced this hash,
+// inferred directly from its raw byte length.
+func (h Hash) Algorithm() (HashAlgorithm, error) {
+	return DetectAlgorithm(h.Bytes())
+}
+
 // ZeroHash represents an empty SHA-1 Hash. It is safe to use as an
 // error-return sentinel and in comparisons via Hash.IsZero (which matches nil
 // and empty hashes as well as both SHA-1 and SHA-256 zero hashes). When the
