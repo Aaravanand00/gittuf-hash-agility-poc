@@ -20,11 +20,11 @@ gittuf is an incubating project at the [Open Source Security Foundation
 
 ## Current Status
 
-gittuf is currently in beta. gittuf's metadata is versioned, and updates should
-not require reinitializing a repository's gittuf policy. We recommend trying out
-gittuf in addition to existing repository security mechanisms you may already be
-using (e.g., forge security policies). We're actively seeking feedback from
-users, please open an issue with any suggestions or bugs you encounter!
+For a quick‑start guide on the new GAP‑1 commands, see the [CLI usage guide](docs/cli_usage.md).
+
+This Proof of Concept (PoC) evaluates three architectural solutions to hash agility:
+
+gittuf is currently in beta. gittuf's metadata is versioned, and updates should not require reinitializing a repository's gittuf policy. We recommend trying out gittuf in addition to existing repository security mechanisms you may already be using (e.g., forge security policies). We're actively seeking feedback from users, please open an issue with any suggestions or bugs you encounter!
 
 ## Installation, Get Started, Get Involved
 
