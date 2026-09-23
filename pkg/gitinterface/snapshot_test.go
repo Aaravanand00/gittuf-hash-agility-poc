@@ -12,15 +12,21 @@ import (
 func TestComputeContentSHA256(t *testing.T) {
 	t.Parallel()
 
-	// Create a fresh test repository using gittuf's own test helper.
+	// Create a fresh test repository with a real commit and tree
 	testRepo := CreateTestGitRepository(t, t.TempDir(), false)
+	treeBuilder := NewTreeBuilder(testRepo)
+	emptyTreeID, err := treeBuilder.WriteTreeFromEntries(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = testRepo.Commit(emptyTreeID, "refs/heads/main", "Initial commit\n", false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	digest, err := testRepo.ComputeContentSHA256()
 	if err != nil {
-		// If the repo has no objects yet, ErrSnapshotNoObjects is acceptable.
-		if err == ErrSnapshotNoObjects {
-			t.Skip("test repository has no objects — skipping digest check")
-		}
 		t.Fatalf("ComputeContentSHA256 returned unexpected error: %v", err)
 	}
 
@@ -43,10 +49,20 @@ func TestComputeContentSHA256Determinism(t *testing.T) {
 	t.Parallel()
 
 	testRepo := CreateTestGitRepository(t, t.TempDir(), false)
+	treeBuilder := NewTreeBuilder(testRepo)
+	emptyTreeID, err := treeBuilder.WriteTreeFromEntries(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = testRepo.Commit(emptyTreeID, "refs/heads/main", "Initial commit\n", false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	digest1, err := testRepo.ComputeContentSHA256()
 	if err != nil {
-		t.Skip("skipping determinism test: " + err.Error())
+		t.Fatalf("first call failed: %v", err)
 	}
 
 	digest2, err := testRepo.ComputeContentSHA256()

@@ -59,10 +59,10 @@ type GenesisBridgeRecord struct {
 
 // BridgeVerificationResult holds the output of VerifyGenesisBridge.
 type BridgeVerificationResult struct {
-	SHA1RSLTip    string
-	SHA256RSLTip  string
-	CommitmentOK  bool
-	ErrorDetail   string
+	SHA1RSLTip   string
+	SHA256RSLTip string
+	CommitmentOK bool
+	ErrorDetail  string
 }
 
 // NewGenesisBridge creates a GenesisBridgeRecord linking the SHA-1 epoch

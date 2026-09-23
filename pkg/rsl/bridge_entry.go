@@ -20,13 +20,12 @@ const (
 	// GenesisBridgeEntryHeader is the commit message header for a GAP-1 Genesis Bridge entry.
 	GenesisBridgeEntryHeader = "RSL Genesis Bridge Entry"
 
-	// Keys used in the GenesisBridgeEntry message.
-	PriorEpochHashAlgoKey   = "priorEpochHashAlgo"
-	PriorEpochRSLTipKey     = "priorEpochRSLTip"
-	PriorEpochHeadOIDKey    = "priorEpochHeadOID"
-	CurrentEpochHeadOIDKey  = "currentEpochHeadOID"
-	CommitmentDigestKey     = "commitmentDigest"
-	FrozenTimestampKey      = "frozenTimestamp"
+	PriorEpochHashAlgoKey  = "priorEpochHashAlgo"
+	PriorEpochRSLTipKey    = "priorEpochRSLTip"
+	PriorEpochHeadOIDKey   = "priorEpochHeadOID"
+	CurrentEpochHeadOIDKey = "currentEpochHeadOID"
+	CommitmentDigestKey    = "commitmentDigest"
+	FrozenTimestampKey     = "frozenTimestamp"
 )
 
 var (
