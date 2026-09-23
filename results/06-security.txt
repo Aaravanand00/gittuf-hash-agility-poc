@@ -1,14 +1,14 @@
 ======================================================================
  PHASE 5: SECURITY TESTS — TAMPER RESISTANCE & CONTENT ANCHORING
- Date: 2026-09-22T20:58:57Z
+ Date: 2026-09-23T06:04:32Z
 ======================================================================
 
 === Test T1: Tamper Resistance (Real Cryptographic Test) ===
 [T1] Reading original snapshot-manifest.json...
-[T1] Original RSL/commitment hash: 6f2906e7c1a5f169...
+[T1] Original RSL/commitment hash: 147f6be0ed328a37...
 [T1-a] Verifying original manifest with ssh-keygen -Y verify (must PASS)...
 [T1-a] PASS: Original manifest signature valid ✅
-[T1-b] Tampered manifest: 6f2906e7c1a5f169... → af2906e7c1a5f169...
+[T1-b] Tampered manifest: 147f6be0ed328a37... → a47f6be0ed328a37...
 [T1-b] Running ssh-keygen -Y verify on TAMPERED manifest (must FAIL)...
 [PASS] T1: Cryptographic tamper detection CONFIRMED ✅
        ssh-keygen REJECTED tampered manifest (exit 255)
@@ -16,7 +16,7 @@
 
 === Test T2: Content-Level SHA-256 Anchor (Patrick P2) ===
 [T2] Computing SHA-256 of ALL Git objects in old-repo...
-[T2] Content-level SHA-256 (all objects): 41fd8a20c17ce2cbb98fdf742e4b54e25cca1b0c5e168d9a39ac1d2562664df3
+[T2] Content-level SHA-256 (all objects): 631feb11198616493afe678eaaf0c645bacd7078db2b309722bc0f2593eeb54d
 [T2] This anchors the ACTUAL CONTENT of the repo, not just RSL OIDs.
 [T2] If SHA-1 is broken and attacker rewrites objects → this hash changes → detected! ✅
 [T2] Content anchor saved to: /d/OneDrive/Desktop/GITTUF/work/content-anchor.txt
@@ -24,15 +24,13 @@
 === Test S1: Real Rekor Transparency Log Submission ===
 [S1] Submitting snapshot commitment to Sigstore Rekor (rekor.sigstore.dev)...
 [S1] Local privacy-safe anchor saved: /d/OneDrive/Desktop/GITTUF/work/rekor-privacy-anchor.json
-[S1] Commitment digest: dd15ced12960c6e7...
+[S1] Commitment digest: 5de715cb6364d271...
 [S1] Zero private data: no branch names, no usernames, no repo paths ✅
 [S1] Submitting rekord (SSH format) to https://rekor.sigstore.dev/api/v1/log/entries ...
-[S1] Manifest SHA-256: 0517a37332eaefb8f3f7ba4a1ca01a2364b944f2a1b505ce40c5b5684e9bee62
-[PASS] S1: Entry submitted to Rekor ✅ (HTTP 201)
-[S1] Rekor Log UUID: c0d23d6ad406973f9559f3ba2d1ca01f84147d8ffc5b8445c224f98b9591801d
-[S1] Rekor Log Index: 2910500578
-[S1] Verify at: https://search.sigstore.dev/?logIndex=2910500578
-[S1] Full Rekor response saved: /d/OneDrive/Desktop/GITTUF/work/rekor-response.json
+[S1] Manifest SHA-256: e17975faa3418477bedce43cffd5d12eb8403e639dc8686d93de8cca28ca2526
+[PASS] S1: Entry already exists in Rekor (HTTP 409 Conflict) ✅
+[S1] This means a previous run already submitted this exact entry.
+[S1] Existing Log Index: 
 
 ======================================================================
  SECURITY TEST RESULTS

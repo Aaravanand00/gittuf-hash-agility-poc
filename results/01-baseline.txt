@@ -1,6 +1,6 @@
 ======================================================================
  PHASE 0: SETUP BASELINE SHA-1 REPOSITORY & GITTUF POLICY
- Date: 2026-09-22T20:58:13Z
+ Date: 2026-09-23T06:03:24Z
 ======================================================================
 
 === Step 1: Generating Ed25519 Keys in keys/ ===
@@ -12,19 +12,19 @@ Initialized empty Git repository in D:/OneDrive/Desktop/GITTUF/work/old-repo/.gi
 EXIT: 0
 ----------------------------------------------------------------------
 [CMD] Commit 1: git commit -m Initial commit
-[main (root-commit) 15b2c1f] Initial commit
+[main (root-commit) 7d812f6] Initial commit
  1 file changed, 1 insertion(+)
  create mode 100644 README.md
 EXIT: 0
 ----------------------------------------------------------------------
 [CMD] Commit 2: git commit -m Add feature A
-[main e0e75ad] Add feature A
+[main 8e7fda4] Add feature A
  1 file changed, 1 insertion(+)
  create mode 100644 feature_a.txt
 EXIT: 0
 ----------------------------------------------------------------------
 [CMD] Commit 3: git commit -m Add feature B
-[main 73d92f8] Add feature B
+[main 44781fb] Add feature B
  1 file changed, 1 insertion(+)
  create mode 100644 feature_b.txt
 EXIT: 0
@@ -57,7 +57,7 @@ EXIT: 0
 EXIT: 0
 ----------------------------------------------------------------------
 [CMD] Commit 4: git commit -m Update README with Commit 4
-[main 11baa23] Update README with Commit 4
+[main d3c3434] Update README with Commit 4
  1 file changed, 1 insertion(+)
 EXIT: 0
 ----------------------------------------------------------------------
@@ -65,7 +65,7 @@ EXIT: 0
 EXIT: 0
 ----------------------------------------------------------------------
 [CMD] Commit 5: git commit -m Update README with Commit 5
-[main 2a91893] Update README with Commit 5
+[main 984eb14] Update README with Commit 5
  1 file changed, 1 insertion(+)
 EXIT: 0
 ----------------------------------------------------------------------
@@ -73,121 +73,121 @@ EXIT: 0
 EXIT: 0
 ----------------------------------------------------------------------
 [CMD] gittuf rsl log: /c/Users/AARAV/go/bin/gittuf rsl log
-entry 414ecab181a60d84bc4768132e76dbe0b229a28c
+entry 1e73ba090dc2cd3a6166866ab81f36ae8965d532
 
   Ref:    refs/heads/main
-  Target: 2a918936d621f670815d496284883088168265aa
+  Target: 984eb14257364893a4b23a18cb1d01945cc8e448
   Number: 9
 
-entry b64abb720767f386ccdab44fa2413ec6425af81f
+entry fa4282723bfdabab78eb2bd5c629d7d46eb84659
 
   Ref:    refs/heads/main
-  Target: 11baa234cc75e301513931368ba589e1f775eb4e
+  Target: d3c3434415f776efac1b86f45991a2063f1ed7c6
   Number: 8
 
-entry af5a4d96f4e34e6e9e126b089f5c39466e1c9ed4
+entry 0e22d2e3bcf7f77588a3fd6ec734e61f6200147c
 
   Ref:    refs/heads/main
-  Target: 73d92f8bfd74ff0b89f2912b96609145b8093301
+  Target: 44781fb98ce2fdc674b0a0a7922dbbe7732c9f41
   Number: 7
 
-entry 1e41ebcdb39d8788c3e1e48d4bc2bf8509d46710
+entry 617c3d617fc160984d1a1998ba266ffa676b513d
 
   Ref:    refs/gittuf/policy
-  Target: 3a532cbf30b3e9cae1d04c308784b5b5a5a4241c
+  Target: dc046aabb690d3c16f177ca78f7ec2eca9fd2848
   Number: 6
 
-entry 2d67ff1e68c5fc09c735a6762bf6bfa0478f3145
+entry bbf16d7cd7490c79ff8afcce65ab526dae5d9bf8
 
   Ref:    refs/gittuf/policy-staging
-  Target: 3a532cbf30b3e9cae1d04c308784b5b5a5a4241c
+  Target: dc046aabb690d3c16f177ca78f7ec2eca9fd2848
   Number: 5
 
-entry c2520f7938644ce0189bc068f1590ed0d65899ac
+entry 043c282b36db7cfe1501b98fcb43c60feedb67ec
 
   Ref:    refs/gittuf/policy-staging
-  Target: 4908aeff5d073f2a2f2044470eaf763b979ad677
+  Target: 7c1ce8a285f31a9d63817d90fecb69ece996b005
   Number: 4
 
-entry 9eda7cd8335a7fa29488cd9df32881eb999888d7
+entry 4c70d96ec4ad2f11e2043fcf5948fe68e8861f6c
 
   Ref:    refs/gittuf/policy-staging
-  Target: 2bbe3f064a9ee7717a0749acd1f05011fab0547c
+  Target: 3ce518533518c97f6b2b92b4b465b9aaebffe42f
   Number: 3
 
-entry 4199f87fd1520953035d76dd72d167a99913bb3e
+entry 8ef82b662d89c65ac6ced2f130f61648338f5eeb
 
   Ref:    refs/gittuf/policy-staging
-  Target: 620776e7c6dd3f032293ce085b7e543c496bbed2
+  Target: fff937f0ee37f34b85c2da0844544860f9aacc99
   Number: 2
 
-entry 4405a65f9d4d808d9df403a852a78027e1a3fd7c
+entry d2fffdbdb250b65459c51c7ffc7bdd39cb57ea63
 
   Ref:    refs/gittuf/policy-staging
-  Target: 16e34e7d3091781b3f51db0e3e5b770dc2bd7948
+  Target: 16dc869bf9110f845464979c4fcd107102c7e542
   Number: 1
 EXIT: 0
 ----------------------------------------------------------------------
 === Step 5: Running gittuf verify-ref --verbose main ===
 [CMD] gittuf verify-ref --verbose main: /c/Users/AARAV/go/bin/gittuf verify-ref --verbose main
-time=2026-09-23T02:28:24.244+05:30 level=DEBUG msg="Loading Git repository from '.'..."
-time=2026-09-23T02:28:24.245+05:30 level=DEBUG msg="Looking for Git binary in PATH..."
-time=2026-09-23T02:28:24.246+05:30 level=DEBUG msg="Identifying git directory for repository..."
-time=2026-09-23T02:28:24.269+05:30 level=DEBUG msg="Setting git directory for repository to 'D:\\OneDrive\\Desktop\\GITTUF\\work\\old-repo\\.git'..."
-time=2026-09-23T02:28:24.294+05:30 level=DEBUG msg="Identifying absolute reference path..."
-time=2026-09-23T02:28:24.367+05:30 level=DEBUG msg="Verifying gittuf policies for 'refs/heads/main'"
-time=2026-09-23T02:28:24.367+05:30 level=DEBUG msg="Loading persistent cache from disk..."
-time=2026-09-23T02:28:24.387+05:30 level=DEBUG msg="Persistent cache does not exist"
-time=2026-09-23T02:28:24.387+05:30 level=DEBUG msg="Persistent cache not found, using regular RSL searcher..."
-time=2026-09-23T02:28:24.387+05:30 level=DEBUG msg="Identifying first RSL entry for 'refs/heads/main'..."
-time=2026-09-23T02:28:25.180+05:30 level=DEBUG msg="Identifying latest RSL entry for 'refs/heads/main'..."
-time=2026-09-23T02:28:25.194+05:30 level=DEBUG msg="Verifying all entries..."
-time=2026-09-23T02:28:25.195+05:30 level=DEBUG msg="Loading policy applicable at first entry 'af5a4d96f4e34e6e9e126b089f5c39466e1c9ed4'..."
-time=2026-09-23T02:28:25.212+05:30 level=DEBUG msg="Scanning RSL for search start point using before condition..."
-time=2026-09-23T02:28:25.212+05:30 level=DEBUG msg="Found entry 'af5a4d96f4e34e6e9e126b089f5c39466e1c9ed4' matching before condition..."
-time=2026-09-23T02:28:25.212+05:30 level=DEBUG msg="Loading policy at entry '1e41ebcdb39d8788c3e1e48d4bc2bf8509d46710'..."
-time=2026-09-23T02:28:25.212+05:30 level=DEBUG msg="Loading persistent cache from disk..."
-time=2026-09-23T02:28:25.232+05:30 level=DEBUG msg="Persistent cache does not exist"
-time=2026-09-23T02:28:25.232+05:30 level=DEBUG msg="Persistent cache not found, using regular RSL searcher..."
-time=2026-09-23T02:28:25.232+05:30 level=DEBUG msg="Finding first policy entry..."
-time=2026-09-23T02:28:25.297+05:30 level=DEBUG msg="Requested policy's entry is the same as first policy entry"
-time=2026-09-23T02:28:25.358+05:30 level=DEBUG msg="Loading policy for '' from '4a1146015ba6c10df7489a4af35490498ff402ca'..."
-time=2026-09-23T02:28:25.467+05:30 level=DEBUG msg="Loaded current repository policy!"
-time=2026-09-23T02:28:25.468+05:30 level=DEBUG msg="Proceeding with verification of attestations..."
-time=2026-09-23T02:28:25.468+05:30 level=DEBUG msg="Found SSH key 'SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8'..."
-time=2026-09-23T02:28:25.468+05:30 level=DEBUG msg="Public key 'SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8' belonging to principal 'SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8' successfully used to verify signature of attestation, counting 'SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8' towards threshold..."
-time=2026-09-23T02:28:25.469+05:30 level=DEBUG msg="Proceeding with verification of attestations..."
-time=2026-09-23T02:28:25.469+05:30 level=DEBUG msg="Found SSH key 'SHA256:eyi9MXlfCTMNbhAUZSvXSdvt5FYovFjkaabDCQra7Ws'..."
-time=2026-09-23T02:28:25.469+05:30 level=DEBUG msg="Public key 'SHA256:eyi9MXlfCTMNbhAUZSvXSdvt5FYovFjkaabDCQra7Ws' belonging to principal 'SHA256:eyi9MXlfCTMNbhAUZSvXSdvt5FYovFjkaabDCQra7Ws' successfully used to verify signature of attestation, counting 'SHA256:eyi9MXlfCTMNbhAUZSvXSdvt5FYovFjkaabDCQra7Ws' towards threshold..."
-time=2026-09-23T02:28:25.469+05:30 level=DEBUG msg="Trusting root of trust for initial policy '1e41ebcdb39d8788c3e1e48d4bc2bf8509d46710'..."
-time=2026-09-23T02:28:25.469+05:30 level=DEBUG msg="Loading attestations applicable at first entry 'af5a4d96f4e34e6e9e126b089f5c39466e1c9ed4'..."
-time=2026-09-23T02:28:25.487+05:30 level=DEBUG msg="Scanning RSL for search start point using before condition..."
-time=2026-09-23T02:28:25.487+05:30 level=DEBUG msg="Found entry 'af5a4d96f4e34e6e9e126b089f5c39466e1c9ed4' matching before condition..."
-time=2026-09-23T02:28:25.527+05:30 level=DEBUG msg="No attestations found before initial entry 'af5a4d96f4e34e6e9e126b089f5c39466e1c9ed4'"
-time=2026-09-23T02:28:25.527+05:30 level=DEBUG msg="Identifying all entries in range..."
-time=2026-09-23T02:28:25.544+05:30 level=DEBUG msg="Verifying entry 'af5a4d96f4e34e6e9e126b089f5c39466e1c9ed4'..."
-time=2026-09-23T02:28:25.544+05:30 level=DEBUG msg="Checking if entry is for policy staging reference..."
-time=2026-09-23T02:28:25.544+05:30 level=DEBUG msg="Checking if entry is for policy reference..."
-time=2026-09-23T02:28:25.544+05:30 level=DEBUG msg="Checking if entry is for attestations reference..."
-time=2026-09-23T02:28:25.544+05:30 level=DEBUG msg="Verifying changes..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Searching for applicable reference authorizations and code reviews..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Initializing path cache in policy..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Verifying entry 'b64abb720767f386ccdab44fa2413ec6425af81f'..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Checking if entry is for policy staging reference..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Checking if entry is for policy reference..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Checking if entry is for attestations reference..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Verifying changes..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Searching for applicable reference authorizations and code reviews..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Found cached verifiers for path 'git:refs/heads/main'"
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Verifying entry '414ecab181a60d84bc4768132e76dbe0b229a28c'..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Checking if entry is for policy staging reference..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Checking if entry is for policy reference..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Checking if entry is for attestations reference..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Verifying changes..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Searching for applicable reference authorizations and code reviews..."
-time=2026-09-23T02:28:25.545+05:30 level=DEBUG msg="Found cached verifiers for path 'git:refs/heads/main'"
-time=2026-09-23T02:28:25.546+05:30 level=DEBUG msg="Verifying if tip of reference matches expected value from RSL..."
-time=2026-09-23T02:28:25.569+05:30 level=DEBUG msg="Verification successful!"
+time=2026-09-23T11:33:39.210+05:30 level=DEBUG msg="Loading Git repository from '.'..."
+time=2026-09-23T11:33:39.211+05:30 level=DEBUG msg="Looking for Git binary in PATH..."
+time=2026-09-23T11:33:39.211+05:30 level=DEBUG msg="Identifying git directory for repository..."
+time=2026-09-23T11:33:39.248+05:30 level=DEBUG msg="Setting git directory for repository to 'D:\\OneDrive\\Desktop\\GITTUF\\work\\old-repo\\.git'..."
+time=2026-09-23T11:33:39.282+05:30 level=DEBUG msg="Identifying absolute reference path..."
+time=2026-09-23T11:33:39.393+05:30 level=DEBUG msg="Verifying gittuf policies for 'refs/heads/main'"
+time=2026-09-23T11:33:39.393+05:30 level=DEBUG msg="Loading persistent cache from disk..."
+time=2026-09-23T11:33:39.426+05:30 level=DEBUG msg="Persistent cache does not exist"
+time=2026-09-23T11:33:39.427+05:30 level=DEBUG msg="Persistent cache not found, using regular RSL searcher..."
+time=2026-09-23T11:33:39.427+05:30 level=DEBUG msg="Identifying first RSL entry for 'refs/heads/main'..."
+time=2026-09-23T11:33:40.508+05:30 level=DEBUG msg="Identifying latest RSL entry for 'refs/heads/main'..."
+time=2026-09-23T11:33:40.530+05:30 level=DEBUG msg="Verifying all entries..."
+time=2026-09-23T11:33:40.530+05:30 level=DEBUG msg="Loading policy applicable at first entry '0e22d2e3bcf7f77588a3fd6ec734e61f6200147c'..."
+time=2026-09-23T11:33:40.551+05:30 level=DEBUG msg="Scanning RSL for search start point using before condition..."
+time=2026-09-23T11:33:40.551+05:30 level=DEBUG msg="Found entry '0e22d2e3bcf7f77588a3fd6ec734e61f6200147c' matching before condition..."
+time=2026-09-23T11:33:40.551+05:30 level=DEBUG msg="Loading policy at entry '617c3d617fc160984d1a1998ba266ffa676b513d'..."
+time=2026-09-23T11:33:40.552+05:30 level=DEBUG msg="Loading persistent cache from disk..."
+time=2026-09-23T11:33:40.576+05:30 level=DEBUG msg="Persistent cache does not exist"
+time=2026-09-23T11:33:40.576+05:30 level=DEBUG msg="Persistent cache not found, using regular RSL searcher..."
+time=2026-09-23T11:33:40.576+05:30 level=DEBUG msg="Finding first policy entry..."
+time=2026-09-23T11:33:40.638+05:30 level=DEBUG msg="Requested policy's entry is the same as first policy entry"
+time=2026-09-23T11:33:40.734+05:30 level=DEBUG msg="Loading policy for '' from '94bbf47adcbdc13a4f900ae625b3a2f2afb9ccc2'..."
+time=2026-09-23T11:33:40.896+05:30 level=DEBUG msg="Loaded current repository policy!"
+time=2026-09-23T11:33:40.896+05:30 level=DEBUG msg="Proceeding with verification of attestations..."
+time=2026-09-23T11:33:40.896+05:30 level=DEBUG msg="Found SSH key 'SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8'..."
+time=2026-09-23T11:33:40.898+05:30 level=DEBUG msg="Public key 'SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8' belonging to principal 'SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8' successfully used to verify signature of attestation, counting 'SHA256:8DDk3T2VDDG6mSvmF9orijzuKe6t9OENtmMgkPU15t8' towards threshold..."
+time=2026-09-23T11:33:40.898+05:30 level=DEBUG msg="Proceeding with verification of attestations..."
+time=2026-09-23T11:33:40.898+05:30 level=DEBUG msg="Found SSH key 'SHA256:eyi9MXlfCTMNbhAUZSvXSdvt5FYovFjkaabDCQra7Ws'..."
+time=2026-09-23T11:33:40.898+05:30 level=DEBUG msg="Public key 'SHA256:eyi9MXlfCTMNbhAUZSvXSdvt5FYovFjkaabDCQra7Ws' belonging to principal 'SHA256:eyi9MXlfCTMNbhAUZSvXSdvt5FYovFjkaabDCQra7Ws' successfully used to verify signature of attestation, counting 'SHA256:eyi9MXlfCTMNbhAUZSvXSdvt5FYovFjkaabDCQra7Ws' towards threshold..."
+time=2026-09-23T11:33:40.898+05:30 level=DEBUG msg="Trusting root of trust for initial policy '617c3d617fc160984d1a1998ba266ffa676b513d'..."
+time=2026-09-23T11:33:40.898+05:30 level=DEBUG msg="Loading attestations applicable at first entry '0e22d2e3bcf7f77588a3fd6ec734e61f6200147c'..."
+time=2026-09-23T11:33:40.926+05:30 level=DEBUG msg="Scanning RSL for search start point using before condition..."
+time=2026-09-23T11:33:40.926+05:30 level=DEBUG msg="Found entry '0e22d2e3bcf7f77588a3fd6ec734e61f6200147c' matching before condition..."
+time=2026-09-23T11:33:40.993+05:30 level=DEBUG msg="No attestations found before initial entry '0e22d2e3bcf7f77588a3fd6ec734e61f6200147c'"
+time=2026-09-23T11:33:40.993+05:30 level=DEBUG msg="Identifying all entries in range..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Verifying entry '0e22d2e3bcf7f77588a3fd6ec734e61f6200147c'..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Checking if entry is for policy staging reference..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Checking if entry is for policy reference..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Checking if entry is for attestations reference..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Verifying changes..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Searching for applicable reference authorizations and code reviews..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Initializing path cache in policy..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Verifying entry 'fa4282723bfdabab78eb2bd5c629d7d46eb84659'..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Checking if entry is for policy staging reference..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Checking if entry is for policy reference..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Checking if entry is for attestations reference..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Verifying changes..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Searching for applicable reference authorizations and code reviews..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Found cached verifiers for path 'git:refs/heads/main'"
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Verifying entry '1e73ba090dc2cd3a6166866ab81f36ae8965d532'..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Checking if entry is for policy staging reference..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Checking if entry is for policy reference..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Checking if entry is for attestations reference..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Verifying changes..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Searching for applicable reference authorizations and code reviews..."
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Found cached verifiers for path 'git:refs/heads/main'"
+time=2026-09-23T11:33:41.018+05:30 level=DEBUG msg="Verifying if tip of reference matches expected value from RSL..."
+time=2026-09-23T11:33:41.042+05:30 level=DEBUG msg="Verification successful!"
 EXIT: 0
 ----------------------------------------------------------------------
 
