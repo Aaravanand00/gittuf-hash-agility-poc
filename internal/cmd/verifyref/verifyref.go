@@ -16,6 +16,9 @@ type options struct {
 	latestOnly    bool
 	fromEntry     string
 	remoteRefName string
+	// GAP-1 cross-epoch verify-ref walk flags
+	bridgeFile string
+	sha1Repo   string
 }
 
 func (o *options) AddFlags(cmd *cobra.Command) {
@@ -41,12 +44,45 @@ func (o *options) AddFlags(cmd *cobra.Command) {
 		"",
 		"name of remote reference, if it differs from the local name",
 	)
+
+	// GAP-1: cross-epoch verify-ref walk flags
+	cmd.Flags().StringVar(
+		&o.bridgeFile,
+		"bridge-file",
+		"",
+		"(GAP-1) path to genesis bridge JSON file — used as cryptographic anchor for cross-epoch RSL verification",
+	)
+
+	cmd.Flags().StringVar(
+		&o.sha1Repo,
+		"sha1-repo",
+		"",
+		"(GAP-1) path to the prior SHA-1 epoch repository — required when --bridge-file is set",
+	)
+
+	// Both GAP-1 flags must be used together
+	cmd.MarkFlagsRequiredTogether("bridge-file", "sha1-repo")
+
+	// GAP-1 flags are incompatible with latest-only and from-entry
+	cmd.MarkFlagsMutuallyExclusive("bridge-file", "latest-only")
+	cmd.MarkFlagsMutuallyExclusive("bridge-file", "from-entry")
 }
 
 func (o *options) Run(cmd *cobra.Command, args []string) error {
 	repo, err := gittuf.LoadRepository(".")
 	if err != nil {
 		return err
+	}
+
+	// GAP-1 cross-epoch verify-ref walk
+	if o.bridgeFile != "" {
+		return repo.VerifyRefCrossEpoch(
+			cmd.Context(),
+			args[0],
+			o.bridgeFile,
+			o.sha1Repo,
+			verifyopts.WithOverrideRefName(o.remoteRefName),
+		)
 	}
 
 	if o.fromEntry != "" {
