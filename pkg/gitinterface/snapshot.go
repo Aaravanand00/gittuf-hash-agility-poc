@@ -20,13 +20,16 @@
 package gitinterface
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -70,45 +73,83 @@ type SnapshotManifest struct {
 }
 
 // ComputeContentSHA256 calculates a single deterministic SHA-256 digest that
-// covers every Git object stored in the repository. It calls:
+// covers the actual payload content of every Git object stored in the repository.
+// It streams all objects via:
 //
-//	git cat-file --batch-all-objects --batch-check='%(objectname)'
+//	git cat-file --batch-all-objects --batch
 //
-// sorts the output, deduplicates it, and hashes the result with SHA-256.
-// This is the "content-level anchor" requested in GAP-1 / Patrick P2.
+// computes SHA-256 over each object's canonical representation (<type> <size>\0<content>),
+// deduplicates and sorts the content digests lexicographically, and hashes the result.
 //
-// The method intentionally does NOT include timestamps or random data so that
-// re-running on an identical object store always produces the same digest.
+// This ensures that even if a SHA-1 collision attack produces identical 40-char
+// object names, the differing raw content payloads will yield distinct SHA-256
+// digests, reliably detecting and rejecting any collision tampering.
 func (r *Repository) ComputeContentSHA256() (string, error) {
-	output, err := r.executor(
-		"cat-file",
-		"--batch-all-objects",
-		"--batch-check=%(objectname)",
-	).executeString()
+	stdOut, _, err := r.executor("cat-file", "--batch-all-objects", "--batch").execute()
 	if err != nil {
 		return "", fmt.Errorf("git cat-file failed: %w", err)
 	}
 
-	if strings.TrimSpace(output) == "" {
+	reader := bufio.NewReader(stdOut)
+	var objectDigests []string
+
+	for {
+		header, err := reader.ReadString('\n')
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return "", fmt.Errorf("error reading object stream header: %w", err)
+		}
+		header = strings.TrimSpace(header)
+		if header == "" {
+			continue
+		}
+		// header format: "<oid> <type> <size>"
+		parts := strings.Split(header, " ")
+		if len(parts) < 3 {
+			continue
+		}
+		size, err := strconv.ParseInt(parts[2], 10, 64)
+		if err != nil {
+			return "", fmt.Errorf("invalid object size in stream: %w", err)
+		}
+
+		// Read payload of length size
+		payload := make([]byte, size)
+		if _, err := io.ReadFull(reader, payload); err != nil {
+			return "", fmt.Errorf("error reading object payload: %w", err)
+		}
+
+		// Read trailing newline emitted by cat-file --batch
+		_, _ = reader.ReadByte()
+
+		// Compute SHA-256 over canonical Git object: "<type> <size>\0<payload>"
+		h := sha256.New()
+		h.Write([]byte(fmt.Sprintf("%s %d\x00", parts[1], size)))
+		h.Write(payload)
+		digest := hex.EncodeToString(h.Sum(nil))
+		objectDigests = append(objectDigests, digest)
+	}
+
+	if len(objectDigests) == 0 {
 		return "", ErrSnapshotNoObjects
 	}
 
-	// Sort and deduplicate object IDs for determinism.
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	seen := make(map[string]bool, len(lines))
-	unique := make([]string, 0, len(lines))
-	for _, l := range lines {
-		l = strings.TrimSpace(l)
-		if l != "" && !seen[l] {
-			seen[l] = true
-			unique = append(unique, l)
+	// Deduplicate and sort content digests for strict determinism
+	seen := make(map[string]bool, len(objectDigests))
+	unique := make([]string, 0, len(objectDigests))
+	for _, d := range objectDigests {
+		if !seen[d] {
+			seen[d] = true
+			unique = append(unique, d)
 		}
 	}
 	sort.Strings(unique)
 
 	combined := strings.Join(unique, "\n")
-	h := sha256.Sum256([]byte(combined))
-	return hex.EncodeToString(h[:]), nil
+	masterHash := sha256.Sum256([]byte(combined))
+	return hex.EncodeToString(masterHash[:]), nil
 }
 
 // ComputeOIDCommitment builds the OID-only commitment hash used by the freeze

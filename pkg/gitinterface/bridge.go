@@ -84,8 +84,8 @@ func NewGenesisBridge(
 
 	now := time.Now().UTC()
 
-	// Commitment: sha256("genesis-bridge" | sha1RSLTip | sha256RSLTip | timestamp)
-	raw := fmt.Sprintf("genesis-bridge|%s|%s|%s", sha1RSLTip, sha256RSLTip, now.Format(time.RFC3339))
+	// Commitment: sha256("genesis-bridge" | "sha1" | sha1RSLTip | sha1HeadOID | sha256HeadOID | timestamp)
+	raw := fmt.Sprintf("genesis-bridge|sha1|%s|%s|%s|%s", sha1RSLTip, sha1HeadOID, sha256HeadOID, now.Format(time.RFC3339))
 	h := sha256.Sum256([]byte(raw))
 	commitment := hex.EncodeToString(h[:])
 
@@ -104,9 +104,9 @@ func NewGenesisBridge(
 // VerifyGenesisBridge verifies that the CommitmentDigest in a GenesisBridgeRecord
 // is internally consistent (i.e. derived from its own fields).
 //
-// NOTE: This does NOT verify the external signature over the record — that
-// must be done separately using ssh-keygen -Y verify or Rekor lookup. This
-// function only confirms that the commitment math is correct.
+// NOTE: This confirms that the commitment math is correct. External cryptographic
+// signature verification over the record/digest must be performed using the
+// root authority key (e.g. ssh-keygen -Y verify, DSSE, or Rekor lookup).
 func VerifyGenesisBridge(bridge *GenesisBridgeRecord) *BridgeVerificationResult {
 	result := &BridgeVerificationResult{
 		SHA1RSLTip:   bridge.SHA1RSLTip,
@@ -114,9 +114,10 @@ func VerifyGenesisBridge(bridge *GenesisBridgeRecord) *BridgeVerificationResult 
 	}
 
 	// Re-derive the commitment
-	raw := fmt.Sprintf("genesis-bridge|%s|%s|%s",
+	raw := fmt.Sprintf("genesis-bridge|sha1|%s|%s|%s|%s",
 		bridge.SHA1RSLTip,
-		bridge.SHA256RSLTip,
+		bridge.SHA1HeadOID,
+		bridge.SHA256HeadOID,
 		bridge.CreatedAt.Format(time.RFC3339),
 	)
 	h := sha256.Sum256([]byte(raw))
