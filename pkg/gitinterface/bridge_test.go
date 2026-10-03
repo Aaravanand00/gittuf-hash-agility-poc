@@ -4,6 +4,7 @@
 package gitinterface
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -47,12 +48,12 @@ func TestNewGenesisBridgeMissingFields(t *testing.T) {
 	t.Parallel()
 
 	_, err := NewGenesisBridge("", "head", "sha256rsl", "sha256head")
-	if err != ErrBridgeMissingField {
+	if !errors.Is(err, ErrBridgeMissingField) {
 		t.Errorf("expected ErrBridgeMissingField for empty sha1RSLTip, got: %v", err)
 	}
 
 	_, err = NewGenesisBridge("sha1rsl", "head", "", "sha256head")
-	if err != ErrBridgeMissingField {
+	if !errors.Is(err, ErrBridgeMissingField) {
 		t.Errorf("expected ErrBridgeMissingField for empty sha256RSLTip, got: %v", err)
 	}
 }

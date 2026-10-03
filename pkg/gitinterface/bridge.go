@@ -73,33 +73,33 @@ var (
 //   - signer_public_key — raw SSH public key used for signing (optional)
 //   - description       — human-readable note
 type GenesisBridgeRecord struct {
-	SchemaVersion   string    `json:"schema_version"`
-	CreatedAt       time.Time `json:"created_at"`
-	SHA1RSLTip      string    `json:"sha1_rsl_tip"`
-	SHA1HeadOID     string    `json:"sha1_head_oid"`
-	SHA256RSLTip    string    `json:"sha256_rsl_tip"`
-	SHA256HeadOID   string    `json:"sha256_head_oid"`
-	CommitmentDigest string   `json:"commitment_digest"`
+	SchemaVersion    string    `json:"schema_version"`
+	CreatedAt        time.Time `json:"created_at"`
+	SHA1RSLTip       string    `json:"sha1_rsl_tip"`
+	SHA1HeadOID      string    `json:"sha1_head_oid"`
+	SHA256RSLTip     string    `json:"sha256_rsl_tip"`
+	SHA256HeadOID    string    `json:"sha256_head_oid"`
+	CommitmentDigest string    `json:"commitment_digest"`
 	// Signature is the armored sshsig signature over CommitmentDigest bytes,
 	// created with the private key corresponding to SignerPublicKey.
 	// Empty when the bridge has not been signed yet.
-	Signature       string    `json:"signature,omitempty"`
+	Signature string `json:"signature,omitempty"`
 	// SignerPublicKey is the raw SSH public-key line (e.g. "ssh-ed25519 AAAA...")
 	// of the key that produced Signature. Embedded so verifiers need only
 	// the bridge JSON — no external allowed_signers file required.
-	SignerPublicKey  string    `json:"signer_public_key,omitempty"`
-	Description     string    `json:"description"`
+	SignerPublicKey string `json:"signer_public_key,omitempty"`
+	Description     string `json:"description"`
 }
 
 // BridgeVerificationResult holds the output of VerifyGenesisBridge and
 // VerifyGenesisBridgeSignature.
 type BridgeVerificationResult struct {
-	SHA1RSLTip      string
-	SHA256RSLTip    string
-	CommitmentOK    bool
-	SignatureOK     bool
+	SHA1RSLTip       string
+	SHA256RSLTip     string
+	CommitmentOK     bool
+	SignatureOK      bool
 	SignatureSkipped bool // true when bridge carries no signature
-	ErrorDetail     string
+	ErrorDetail      string
 }
 
 // NewGenesisBridge creates an unsigned GenesisBridgeRecord.

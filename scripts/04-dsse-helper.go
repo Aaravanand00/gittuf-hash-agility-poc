@@ -1,3 +1,6 @@
+// Copyright The gittuf Authors
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 import (
@@ -5,8 +8,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
+
+type InTotoSubject struct {
+	Name   string            `json:"name"`
+	Digest map[string]string `json:"digest"`
+}
+
+type HashEquivalencePayload struct {
+	EpochTransition   string    `json:"epochTransition"`
+	SourceAlgorithm   string    `json:"sourceAlgorithm"`
+	TargetAlgorithm   string    `json:"targetAlgorithm"`
+	CertifiedAt       time.Time `json:"certifiedAt"`
+	CertifiedBy       string    `json:"certifiedBy"`
+	VerificationNotes string    `json:"verificationNotes"`
+}
 
 type InTotoStatement struct {
 	Type          string                 `json:"_type"`
@@ -15,18 +33,9 @@ type InTotoStatement struct {
 	Predicate     HashEquivalencePayload `json:"predicate"`
 }
 
-type InTotoSubject struct {
-	Name   string            `json:"name"`
-	Digest map[string]string `json:"digest"`
-}
-
-type HashEquivalencePayload struct {
-	EpochTransition   string    `json:"epoch_transition"`
-	SourceAlgorithm   string    `json:"source_algorithm"`
-	TargetAlgorithm   string    `json:"target_algorithm"`
-	CertifiedAt       time.Time `json:"certified_at"`
-	CertifiedBy       string    `json:"certified_by"`
-	VerificationNotes string    `json:"verification_notes"`
+type DSSESignature struct {
+	KeyID string `json:"keyid"`
+	Sig   string `json:"sig"`
 }
 
 type DSSEEnvelope struct {
@@ -35,20 +44,16 @@ type DSSEEnvelope struct {
 	Signatures  []DSSESignature `json:"signatures"`
 }
 
-type DSSESignature struct {
-	KeyID string `json:"keyid"`
-	Sig   string `json:"sig"`
-}
-
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: dsse-helper <pae|envelope|payload|tamper> [args...]")
+		fmt.Println("Usage: dsse-helper <pae|envelope|payload|tamper|extract> [args...]")
 		os.Exit(1)
 	}
 
 	command := os.Args[1]
 
-	if command == "pae" || command == "envelope" || command == "payload" {
+	switch command {
+	case "pae", "envelope", "payload":
 		if len(os.Args) < 4 {
 			fmt.Println("Usage: dsse-helper pae|envelope|payload <sha1> <sha256> [keyID] [sigFile]")
 			os.Exit(1)
@@ -97,7 +102,7 @@ func main() {
 				os.Exit(1)
 			}
 			keyID := os.Args[4]
-			sigFile := os.Args[5]
+			sigFile := filepath.Clean(os.Args[5])
 
 			sigBytes, err := os.ReadFile(sigFile)
 			if err != nil {
@@ -122,12 +127,12 @@ func main() {
 			}
 			fmt.Println(string(envBytes))
 		}
-	} else if command == "tamper" {
+	case "tamper":
 		if len(os.Args) < 3 {
 			fmt.Println("Usage: dsse-helper tamper <envelope_file>")
 			os.Exit(1)
 		}
-		envBytes, err := os.ReadFile(os.Args[2])
+		envBytes, err := os.ReadFile(filepath.Clean(os.Args[2]))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading envelope: %v\n", err)
 			os.Exit(1)
@@ -166,12 +171,12 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println(string(outBytes))
-	} else if command == "extract" {
+	case "extract":
 		if len(os.Args) < 5 {
 			fmt.Println("Usage: dsse-helper extract <envelope_file> <sig_out> <payload_out>")
 			os.Exit(1)
 		}
-		envBytes, err := os.ReadFile(os.Args[2])
+		envBytes, err := os.ReadFile(filepath.Clean(os.Args[2]))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading envelope: %v\n", err)
 			os.Exit(1)
@@ -185,13 +190,13 @@ func main() {
 		if len(env.Signatures) > 0 {
 			sigBytes, err := base64.StdEncoding.DecodeString(env.Signatures[0].Sig)
 			if err == nil {
-				os.WriteFile(os.Args[3], sigBytes, 0644)
+				_ = os.WriteFile(filepath.Clean(os.Args[3]), sigBytes, 0o600)
 			}
 		}
 
 		payloadBytes, err := base64.StdEncoding.DecodeString(env.Payload)
 		if err == nil {
-			os.WriteFile(os.Args[4], payloadBytes, 0644)
+			_ = os.WriteFile(filepath.Clean(os.Args[4]), payloadBytes, 0o600)
 		}
 	}
 }

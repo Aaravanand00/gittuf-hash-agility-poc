@@ -40,7 +40,7 @@ func (o *options) AddFlags(cmd *cobra.Command) {
 	)
 }
 
-func (o *options) Run(cmd *cobra.Command, args []string) error {
+func (o *options) Run(cmd *cobra.Command, _ []string) error {
 	repo, err := gitinterface.LoadRepository(".")
 	if err != nil {
 		return fmt.Errorf("failed to open git repository: %w", err)
@@ -80,7 +80,7 @@ func (vo *verifyOptions) AddFlags(cmd *cobra.Command) {
 	)
 }
 
-func (vo *verifyOptions) Run(cmd *cobra.Command, args []string) error {
+func (vo *verifyOptions) Run(cmd *cobra.Command, _ []string) error {
 	manifest, err := gitinterface.LoadSnapshotManifest(vo.manifestFile)
 	if err != nil {
 		return fmt.Errorf("failed to load snapshot manifest: %w", err)

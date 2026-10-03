@@ -4,6 +4,7 @@
 package rsl
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/gittuf/gittuf/pkg/githash"
@@ -50,12 +51,12 @@ func TestGenesisBridgeEntry(t *testing.T) {
 func TestGenesisBridgeEntryValidation(t *testing.T) {
 	// Missing required fields should fail
 	_, err := NewGenesisBridgeEntry("sha1", "", "head", "head256")
-	if err != ErrInvalidGenesisBridgeEntry {
+	if !errors.Is(err, ErrInvalidGenesisBridgeEntry) {
 		t.Errorf("expected ErrInvalidGenesisBridgeEntry for missing RSL tip, got %v", err)
 	}
 
 	_, err = NewGenesisBridgeEntry("sha1", "rsl", "", "head256")
-	if err != ErrInvalidGenesisBridgeEntry {
+	if !errors.Is(err, ErrInvalidGenesisBridgeEntry) {
 		t.Errorf("expected ErrInvalidGenesisBridgeEntry for missing head, got %v", err)
 	}
 }

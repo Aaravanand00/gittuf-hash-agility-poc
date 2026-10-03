@@ -40,7 +40,7 @@ func (co *createOptions) AddFlags(cmd *cobra.Command) {
 	_ = cmd.MarkFlagRequired("sha256-head")
 }
 
-func (co *createOptions) Run(cmd *cobra.Command, args []string) error {
+func (co *createOptions) Run(cmd *cobra.Command, _ []string) error {
 	cmd.Printf("Creating GAP-1 Genesis Bridge record...\n")
 
 	bridge, err := gitinterface.NewGenesisBridge(
@@ -93,7 +93,7 @@ func (vo *verifyOptions) AddFlags(cmd *cobra.Command) {
 	)
 }
 
-func (vo *verifyOptions) Run(cmd *cobra.Command, args []string) error {
+func (vo *verifyOptions) Run(cmd *cobra.Command, _ []string) error {
 	bridge, err := gitinterface.LoadGenesisBridge(vo.bridgeFile)
 	if err != nil {
 		return fmt.Errorf("failed to load genesis bridge: %w", err)
@@ -106,9 +106,9 @@ func (vo *verifyOptions) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		if result != nil && result.CommitmentOK {
 			// Math passed but signature failed/missing
-			return fmt.Errorf("❌ Bridge commitment ✔ but signature check FAILED: %v", err)
+			return fmt.Errorf("❌ Bridge commitment ✔ but signature check FAILED: %w", err)
 		}
-		return fmt.Errorf("❌ Genesis Bridge verification FAILED: %v", err)
+		return fmt.Errorf("❌ Genesis Bridge verification FAILED: %w", err)
 	}
 
 	cmd.Printf("✅ Commitment digest ✔\n")
