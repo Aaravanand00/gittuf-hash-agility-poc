@@ -227,14 +227,22 @@ func (r *Repository) VerifyRefCrossEpoch(ctx context.Context, refName, bridgeFil
 		return fmt.Errorf("cannot load genesis bridge file '%s': %w", bridgeFilePath, err)
 	}
 
-	slog.Info("GAP-1 cross-epoch verify: verifying bridge commitment digest...")
-	result := gitinterface.VerifyGenesisBridge(bridge)
-	if !result.CommitmentOK {
-		return fmt.Errorf("genesis bridge commitment verification failed: %s", result.ErrorDetail)
+	slog.Info("GAP-1 cross-epoch verify: verifying bridge commitment digest AND SSH signature...")
+	sigResult, err := gitinterface.VerifyGenesisBridgeSignature(bridge)
+	if err != nil {
+		// Distinguish between "no signature" and "bad signature"
+		if errors.Is(err, gitinterface.ErrBridgeNotSigned) {
+			return fmt.Errorf(
+				"GAP-1 security check FAILED: bridge record '%s' has no embedded SSH signature — "+
+					"sign the bridge with 'gittuf bridge create --signing-key <key>' before verifying cross-epoch",
+				bridgeFilePath,
+			)
+		}
+		return fmt.Errorf("genesis bridge verification failed: %w", err)
 	}
 	slog.Info(fmt.Sprintf(
-		"GAP-1 bridge commitment ✔  sha1_rsl_tip=%s  sha256_rsl_tip=%s",
-		bridge.SHA1RSLTip, bridge.SHA256RSLTip,
+		"GAP-1 bridge commitment ✔  signature ✔  sha1_rsl_tip=%s  sha256_rsl_tip=%s  signer=%s",
+		sigResult.SHA1RSLTip, sigResult.SHA256RSLTip, bridge.SignerPublicKey[:min(40, len(bridge.SignerPublicKey))]+"...",
 	))
 
 	// ── Phase 2: Load SHA-1 repo and anchor-check its RSL tip ─────────────────

@@ -5,6 +5,7 @@ package bridge
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/gittuf/gittuf/pkg/gitinterface"
 	"github.com/spf13/cobra"
@@ -16,6 +17,7 @@ type createOptions struct {
 	sha256RSLTip  string
 	sha256HeadOID string
 	outputFile    string
+	signingKey    string // path to SSH private key for signing
 }
 
 func (co *createOptions) AddFlags(cmd *cobra.Command) {
@@ -24,6 +26,13 @@ func (co *createOptions) AddFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&co.sha256RSLTip, "sha256-rsl", "", "Initial tip OID of SHA-256 RSL epoch")
 	cmd.Flags().StringVar(&co.sha256HeadOID, "sha256-head", "", "Initial tip OID of SHA-256 repository HEAD")
 	cmd.Flags().StringVarP(&co.outputFile, "output", "o", "genesis-bridge.json", "Output path for the genesis bridge record")
+	cmd.Flags().StringVarP(
+		&co.signingKey,
+		"signing-key", "k",
+		"",
+		"Path to SSH private key (PEM) used to cryptographically sign the bridge commitment digest.\n"+
+			"Strongly recommended — unsigned bridges will be rejected by 'gittuf verify-ref --bridge-file'.",
+	)
 
 	_ = cmd.MarkFlagRequired("sha1-rsl")
 	_ = cmd.MarkFlagRequired("sha1-head")
@@ -42,6 +51,23 @@ func (co *createOptions) Run(cmd *cobra.Command, args []string) error {
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create genesis bridge: %w", err)
+	}
+
+	// Sign the bridge if a signing key was provided
+	if co.signingKey != "" {
+		cmd.Printf("Signing bridge commitment with key: %s\n", co.signingKey)
+		pemBytes, err := os.ReadFile(co.signingKey)
+		if err != nil {
+			return fmt.Errorf("cannot read signing key '%s': %w", co.signingKey, err)
+		}
+		if err := gitinterface.SignGenesisBridge(bridge, pemBytes); err != nil {
+			return fmt.Errorf("failed to sign genesis bridge: %w", err)
+		}
+		cmd.Printf("✅ Bridge signed successfully (signer public key embedded in JSON)\n")
+	} else {
+		cmd.Printf("⚠️  WARNING: Bridge created WITHOUT a signature.\n")
+		cmd.Printf("   Use --signing-key <path> to embed an SSH signature.\n")
+		cmd.Printf("   Unsigned bridges will be rejected by 'gittuf verify-ref --bridge-file'.\n")
 	}
 
 	if err := gitinterface.WriteGenesisBridge(bridge, co.outputFile); err != nil {
@@ -73,14 +99,22 @@ func (vo *verifyOptions) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load genesis bridge: %w", err)
 	}
 
-	cmd.Printf("Verifying Genesis Bridge integrity: %s\n", vo.bridgeFile)
+	cmd.Printf("Verifying Genesis Bridge: %s\n\n", vo.bridgeFile)
 
-	result := gitinterface.VerifyGenesisBridge(bridge)
-	if !result.CommitmentOK {
-		return fmt.Errorf("❌ Genesis Bridge verification FAILED: %s", result.ErrorDetail)
+	// Full verification: commitment math + SSH signature
+	result, err := gitinterface.VerifyGenesisBridgeSignature(bridge)
+	if err != nil {
+		if result != nil && result.CommitmentOK {
+			// Math passed but signature failed/missing
+			return fmt.Errorf("❌ Bridge commitment ✔ but signature check FAILED: %v", err)
+		}
+		return fmt.Errorf("❌ Genesis Bridge verification FAILED: %v", err)
 	}
 
-	cmd.Printf("✅ Genesis Bridge verification PASSED (Commitment: %s)\n", bridge.CommitmentDigest)
+	cmd.Printf("✅ Commitment digest ✔\n")
+	cmd.Printf("✅ SSH signature     ✔\n")
+	cmd.Printf("   Signer key: %s\n", bridge.SignerPublicKey)
+	cmd.Printf("   Commitment: %s\n", bridge.CommitmentDigest)
 	return nil
 }
 
@@ -96,7 +130,7 @@ func New() *cobra.Command {
 	createOpt := &createOptions{}
 	createCmd := &cobra.Command{
 		Use:               "create",
-		Short:             "Create a Genesis Bridge record linking SHA-1 and SHA-256 epochs",
+		Short:             "Create (and optionally sign) a Genesis Bridge record linking SHA-1 and SHA-256 epochs",
 		RunE:              createOpt.Run,
 		DisableAutoGenTag: true,
 	}
@@ -107,7 +141,7 @@ func New() *cobra.Command {
 	verifyOpt := &verifyOptions{}
 	verifyCmd := &cobra.Command{
 		Use:               "verify",
-		Short:             "Verify cryptographic consistency of a Genesis Bridge record",
+		Short:             "Verify commitment digest AND SSH signature of a Genesis Bridge record",
 		RunE:              verifyOpt.Run,
 		DisableAutoGenTag: true,
 	}
