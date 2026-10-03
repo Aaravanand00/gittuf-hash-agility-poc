@@ -21,7 +21,15 @@ echo -e "${BOLD}${BLUE}=========================================================
 echo
 
 # 0. Setup Temporary Working Directory
-DEMO_ROOT="$(mktemp -d -t gittuf-demo-XXXXXX)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+POC_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+if command -v cygpath >/dev/null 2>&1; then
+    DEMO_ROOT="${POC_DIR}/.demo_sandbox"
+else
+    DEMO_ROOT="$(mktemp -d -t gittuf-demo-XXXXXX)"
+fi
+rm -rf "${DEMO_ROOT}"
 trap 'rm -rf "${DEMO_ROOT}"' EXIT
 
 KEYS_DIR="${DEMO_ROOT}/keys"
@@ -81,20 +89,20 @@ git init -b main >/dev/null 2>&1
 git config user.name "Demo Developer"
 git config user.email "dev@demo.gittuf"
 git config gpg.format ssh
-git config user.signingkey "${KEYS_DIR}/dev.pub"
+git config user.signingkey "../keys/dev.pub"
 
 echo "Hello Gittuf GAP-1" > README.md
 git add README.md
 git commit -m "Initial commit under SHA-1" >/dev/null 2>&1
 
-"${GITTUF_BIN}" trust init -k "${KEYS_DIR}/root" --create-rsl-entry >/dev/null 2>&1
-"${GITTUF_BIN}" trust add-policy-key -k "${KEYS_DIR}/root" --policy-key "${KEYS_DIR}/policy.pub" --create-rsl-entry >/dev/null 2>&1
-"${GITTUF_BIN}" policy init -k "${KEYS_DIR}/policy" --create-rsl-entry >/dev/null 2>&1
-"${GITTUF_BIN}" policy add-key -k "${KEYS_DIR}/policy" --public-key "${KEYS_DIR}/dev.pub" --create-rsl-entry >/dev/null 2>&1
+"${GITTUF_BIN}" trust init -k "../keys/root" --create-rsl-entry >/dev/null 2>&1
+"${GITTUF_BIN}" trust add-policy-key -k "../keys/root" --policy-key "../keys/policy.pub" --create-rsl-entry >/dev/null 2>&1
+"${GITTUF_BIN}" policy init -k "../keys/policy" --create-rsl-entry >/dev/null 2>&1
+"${GITTUF_BIN}" policy add-key -k "../keys/policy" --public-key "../keys/dev.pub" --create-rsl-entry >/dev/null 2>&1
 
 DEV_KEY_ID="$("${GITTUF_BIN}" policy list-principals --policy-ref policy-staging 2>/dev/null | grep -o 'SHA256:[^ :]*' | head -n1 || true)"
-"${GITTUF_BIN}" policy add-rule -k "${KEYS_DIR}/policy" --rule-name protect-main --rule-pattern "refs/heads/main" --authorize "${DEV_KEY_ID}" --create-rsl-entry >/dev/null 2>&1
-"${GITTUF_BIN}" policy apply -k "${KEYS_DIR}/policy" --local-only >/dev/null 2>&1
+"${GITTUF_BIN}" policy add-rule -k "../keys/policy" --rule-name protect-main --rule-pattern "refs/heads/main" --authorize "${DEV_KEY_ID}" --create-rsl-entry >/dev/null 2>&1
+"${GITTUF_BIN}" policy apply -k "../keys/policy" --local-only >/dev/null 2>&1
 
 echo "Feature commit" > feature.txt
 git add feature.txt
@@ -112,9 +120,9 @@ echo
 # STEP 3: Create GAP-1 Deterministic Freeze Snapshot (Patrick P2)
 # ------------------------------------------------------------------------------
 echo -e "${BOLD}▶ [3/6] Freezing SHA-1 repository with deterministic content SHA-256...${RESET}"
-"${GITTUF_BIN}" snapshot freeze -o "${MANIFEST_FILE}" -k "${ROOT_FP}" >/dev/null 2>&1
+"${GITTUF_BIN}" snapshot freeze -o "../snapshot-manifest.json" -k "${ROOT_FP}" >/dev/null 2>&1
 echo -e "${GREEN}✔ Snapshot Manifest Generated:${RESET} ${MANIFEST_FILE}"
-grep -E '(sha1_repo_head|content_sha256|commitment_sha256)' "${MANIFEST_FILE}" | sed 's/^/   /'
+grep -E '(sha1_repo_head|content_sha256|commitment_sha256)' "../snapshot-manifest.json" | sed 's/^/   /'
 echo
 
 # ------------------------------------------------------------------------------
@@ -126,19 +134,19 @@ git init --object-format=sha256 -b main >/dev/null 2>&1
 git config user.name "Demo Developer"
 git config user.email "dev@demo.gittuf"
 git config gpg.format ssh
-git config user.signingkey "${KEYS_DIR}/dev.pub"
+git config user.signingkey "../keys/dev.pub"
 
 (cd "${SRC_REPO}" && git fast-export --all --signed-tags=strip) | git fast-import >/dev/null 2>&1
 git for-each-ref --format="%(refname)" refs/gittuf/ | while read ref; do git update-ref -d "$ref"; done || true
 
 # Initialize fresh trust in SHA-256 epoch
-"${GITTUF_BIN}" trust init -k "${KEYS_DIR}/root" --create-rsl-entry >/dev/null 2>&1
-"${GITTUF_BIN}" trust add-policy-key -k "${KEYS_DIR}/root" --policy-key "${KEYS_DIR}/policy.pub" --create-rsl-entry >/dev/null 2>&1
-"${GITTUF_BIN}" policy init -k "${KEYS_DIR}/policy" --create-rsl-entry >/dev/null 2>&1
-"${GITTUF_BIN}" policy add-key -k "${KEYS_DIR}/policy" --public-key "${KEYS_DIR}/dev.pub" --create-rsl-entry >/dev/null 2>&1
+"${GITTUF_BIN}" trust init -k "../keys/root" --create-rsl-entry >/dev/null 2>&1
+"${GITTUF_BIN}" trust add-policy-key -k "../keys/root" --policy-key "../keys/policy.pub" --create-rsl-entry >/dev/null 2>&1
+"${GITTUF_BIN}" policy init -k "../keys/policy" --create-rsl-entry >/dev/null 2>&1
+"${GITTUF_BIN}" policy add-key -k "../keys/policy" --public-key "../keys/dev.pub" --create-rsl-entry >/dev/null 2>&1
 DEV_KEY_ID_DST="$("${GITTUF_BIN}" policy list-principals --policy-ref policy-staging 2>/dev/null | grep -o 'SHA256:[^ :]*' | head -n1 || true)"
-"${GITTUF_BIN}" policy add-rule -k "${KEYS_DIR}/policy" --rule-name protect-main --rule-pattern "refs/heads/main" --authorize "${DEV_KEY_ID_DST}" --create-rsl-entry >/dev/null 2>&1
-"${GITTUF_BIN}" policy apply -k "${KEYS_DIR}/policy" --local-only >/dev/null 2>&1
+"${GITTUF_BIN}" policy add-rule -k "../keys/policy" --rule-name protect-main --rule-pattern "refs/heads/main" --authorize "${DEV_KEY_ID_DST}" --create-rsl-entry >/dev/null 2>&1
+"${GITTUF_BIN}" policy apply -k "../keys/policy" --local-only >/dev/null 2>&1
 "${GITTUF_BIN}" rsl record main --local-only >/dev/null 2>&1
 
 SHA256_HEAD="$(git rev-parse HEAD)"
@@ -157,9 +165,9 @@ echo -e "${BOLD}▶ [5/6] Constructing Genesis Bridge across cryptographic epoch
     --sha1-head "${SHA1_HEAD}" \
     --sha256-rsl "${SHA256_RSL_TIP}" \
     --sha256-head "${SHA256_HEAD}" \
-    --output "${BRIDGE_FILE}" >/dev/null 2>&1
+    --output "../genesis-bridge.json" >/dev/null 2>&1
 echo -e "${GREEN}✔ Genesis Bridge Created:${RESET} ${BRIDGE_FILE}"
-grep -E '(sha1_rsl_tip|sha256_rsl_tip|commitment_digest)' "${BRIDGE_FILE}" | sed 's/^/   /'
+grep -E '(sha1_rsl_tip|sha256_rsl_tip|commitment_digest)' "../genesis-bridge.json" | sed 's/^/   /'
 echo
 
 # ------------------------------------------------------------------------------
@@ -167,8 +175,8 @@ echo
 # ------------------------------------------------------------------------------
 echo -e "${BOLD}▶ [6/6] Verifying Snapshot & Genesis Bridge integrity...${RESET}"
 cd "${SRC_REPO}"
-"${GITTUF_BIN}" snapshot verify -m "${MANIFEST_FILE}"
-"${GITTUF_BIN}" bridge verify -f "${BRIDGE_FILE}"
+"${GITTUF_BIN}" snapshot verify -m "../snapshot-manifest.json"
+"${GITTUF_BIN}" bridge verify -f "../genesis-bridge.json"
 
 echo
 echo -e "${BOLD}${GREEN}======================================================================${RESET}"

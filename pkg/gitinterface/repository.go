@@ -111,6 +111,7 @@ func (r *Repository) ensureNoCompatObjectFormat() error {
 	return nil
 }
 
+
 func findGitDirPath(startPath string) (string, bool, error) {
 	currentPath, err := filepath.Abs(startPath)
 	if err != nil {
