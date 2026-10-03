@@ -10,7 +10,7 @@
 //
 // Commitment formula:
 //
-//	sha256("genesis-bridge|sha1|<sha1RSLTip>|<sha1HeadOID>|<sha256HeadOID>|<RFC3339timestamp>")
+//	sha256("genesis-bridge|sha1|<sha1RSLTip>|<sha1HeadOID>|<sha256RSLTip>|<sha256HeadOID>|<RFC3339timestamp>")
 //
 // The CommitmentDigest is signed using an SSH private key (sshsig format,
 // namespace "gittuf-bridge"). The resulting armored signature and the signer's
@@ -116,8 +116,8 @@ func NewGenesisBridge(
 	}
 
 	now := time.Now().UTC()
-	raw := fmt.Sprintf("genesis-bridge|sha1|%s|%s|%s|%s",
-		sha1RSLTip, sha1HeadOID, sha256HeadOID, now.Format(time.RFC3339))
+	raw := fmt.Sprintf("genesis-bridge|sha1|%s|%s|%s|%s|%s",
+		sha1RSLTip, sha1HeadOID, sha256RSLTip, sha256HeadOID, now.Format(time.RFC3339))
 	h := sha256.Sum256([]byte(raw))
 	commitment := hex.EncodeToString(h[:])
 
@@ -177,9 +177,10 @@ func VerifyGenesisBridge(bridge *GenesisBridgeRecord) *BridgeVerificationResult 
 		SHA256RSLTip: bridge.SHA256RSLTip,
 	}
 
-	raw := fmt.Sprintf("genesis-bridge|sha1|%s|%s|%s|%s",
+	raw := fmt.Sprintf("genesis-bridge|sha1|%s|%s|%s|%s|%s",
 		bridge.SHA1RSLTip,
 		bridge.SHA1HeadOID,
+		bridge.SHA256RSLTip,
 		bridge.SHA256HeadOID,
 		bridge.CreatedAt.Format(time.RFC3339),
 	)
