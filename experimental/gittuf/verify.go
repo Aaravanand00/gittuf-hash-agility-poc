@@ -15,6 +15,7 @@ import (
 	"github.com/gittuf/gittuf/internal/policy"
 	"github.com/gittuf/gittuf/pkg/githash"
 	"github.com/gittuf/gittuf/pkg/gitinterface"
+	"github.com/gittuf/gittuf/pkg/rsl"
 )
 
 // ErrRefStateDoesNotMatchRSL is returned when a Git reference being verified
@@ -203,6 +204,99 @@ func (r *Repository) VerifyMergeable(ctx context.Context, targetRef, featureRef 
 func (r *Repository) VerifyNetwork(ctx context.Context) error {
 	verifier := policy.NewPolicyVerifier(r.r)
 	return verifier.VerifyNetwork(ctx)
+}
+
+// VerifyRefCrossEpoch performs a full cross-epoch verification of a reference
+// across both the current (SHA-256) and prior (SHA-1) epochs. This implements
+// the GAP-1 cross-epoch verify-ref walk.
+//
+// Security model (Option B — Bridge File as Cryptographic Anchor):
+//  1. Load the Genesis Bridge JSON (bridgeFilePath) and verify its internal
+//     commitment digest.
+//  2. Load the SHA-1 repository (sha1RepoPath) and read its actual RSL tip.
+//  3. Compare the actual SHA-1 RSL tip against bridge.SHA1RSLTip — if they
+//     don't match, reject immediately. This prevents a wrong/malicious SHA-1
+//     repo from being substituted.
+//  4. Verify the current SHA-256 epoch using the standard VerifyRef flow.
+//  5. Verify the SHA-1 epoch's full RSL using the same policy engine.
+func (r *Repository) VerifyRefCrossEpoch(ctx context.Context, refName, bridgeFilePath, sha1RepoPath string, opts ...verifyopts.Option) error {
+	// ── Phase 1: Load and verify the Genesis Bridge JSON ──────────────────────
+	slog.Info("GAP-1 cross-epoch verify: loading Genesis Bridge record...")
+	bridge, err := gitinterface.LoadGenesisBridge(bridgeFilePath)
+	if err != nil {
+		return fmt.Errorf("cannot load genesis bridge file '%s': %w", bridgeFilePath, err)
+	}
+
+	slog.Info("GAP-1 cross-epoch verify: verifying bridge commitment digest...")
+	result := gitinterface.VerifyGenesisBridge(bridge)
+	if !result.CommitmentOK {
+		return fmt.Errorf("genesis bridge commitment verification failed: %s", result.ErrorDetail)
+	}
+	slog.Info(fmt.Sprintf(
+		"GAP-1 bridge commitment ✔  sha1_rsl_tip=%s  sha256_rsl_tip=%s",
+		bridge.SHA1RSLTip, bridge.SHA256RSLTip,
+	))
+
+	// ── Phase 2: Load SHA-1 repo and anchor-check its RSL tip ─────────────────
+	slog.Info(fmt.Sprintf("GAP-1 cross-epoch verify: loading SHA-1 repository from '%s'...", sha1RepoPath))
+	sha1Repo, err := gitinterface.LoadRepository(sha1RepoPath)
+	if err != nil {
+		return fmt.Errorf("cannot load SHA-1 repository from '%s': %w", sha1RepoPath, err)
+	}
+
+	slog.Info("GAP-1 cross-epoch verify: reading SHA-1 RSL tip...")
+	sha1RSLTipHash, err := sha1Repo.GetReference(rsl.Ref)
+	if err != nil {
+		return fmt.Errorf("cannot read SHA-1 RSL tip from repo: %w", err)
+	}
+
+	// SECURITY CHECK: actual SHA-1 RSL tip must match bridge record
+	if sha1RSLTipHash.String() != bridge.SHA1RSLTip {
+		return fmt.Errorf(
+			"GAP-1 security check FAILED: SHA-1 repo RSL tip (%s) does not match bridge record (%s) — wrong or tampered repository",
+			sha1RSLTipHash.String(), bridge.SHA1RSLTip,
+		)
+	}
+	slog.Info(fmt.Sprintf(
+		"GAP-1 SHA-1 RSL tip anchor check ✔  actual=%s  bridge=%s",
+		sha1RSLTipHash.String(), bridge.SHA1RSLTip,
+	))
+
+	// ── Phase 3: Verify current (SHA-256) epoch ───────────────────────────────
+	slog.Info("GAP-1 cross-epoch verify: verifying SHA-256 epoch RSL...")
+	if err := r.VerifyRef(ctx, refName, opts...); err != nil {
+		return fmt.Errorf("SHA-256 epoch verification failed: %w", err)
+	}
+	slog.Info("GAP-1 SHA-256 epoch verification ✔")
+
+	// ── Phase 4: Verify SHA-1 epoch RSL ──────────────────────────────────────
+	slog.Info("GAP-1 cross-epoch verify: verifying SHA-1 epoch RSL...")
+	sha1Verifier := policy.NewPolicyVerifier(sha1Repo)
+
+	sha1RefName, err := sha1Repo.AbsoluteReference(refName)
+	if err != nil {
+		return fmt.Errorf("cannot resolve ref '%s' in SHA-1 repo: %w", refName, err)
+	}
+
+	sha1ExpectedTip, err := sha1Verifier.VerifyRefFull(ctx, sha1RefName)
+	if err != nil {
+		return fmt.Errorf("SHA-1 epoch RSL verification failed: %w", err)
+	}
+
+	// Verify that the SHA-1 repo's HEAD OID matches the bridge record
+	if sha1ExpectedTip.String() != bridge.SHA1HeadOID {
+		return fmt.Errorf(
+			"GAP-1 security check FAILED: SHA-1 epoch verified tip (%s) does not match bridge HEAD OID (%s)",
+			sha1ExpectedTip.String(), bridge.SHA1HeadOID,
+		)
+	}
+	slog.Info(fmt.Sprintf(
+		"GAP-1 SHA-1 epoch verification ✔  verified tip=%s matches bridge HEAD=%s",
+		sha1ExpectedTip.String(), bridge.SHA1HeadOID,
+	))
+
+	slog.Info("GAP-1 cross-epoch verify: full chain of trust established across both epochs ✔")
+	return nil
 }
 
 // verifyRefTip inspects the specified reference in the local repository to

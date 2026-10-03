@@ -727,6 +727,33 @@ func GetLatestEntry(storer gitstore.Storer) (Entry, error) {
 	return GetEntry(storer, commitID)
 }
 
+// GetLatestGenesisBridgeEntry walks the RSL backwards from the tip and returns
+// the first GenesisBridgeEntry it finds. This is used by the cross-epoch
+// verify-ref walk (GAP-1) to locate the epoch boundary inside the RSL.
+// Returns ErrRSLEntryNotFound if no bridge entry exists in the RSL.
+func GetLatestGenesisBridgeEntry(storer gitstore.Storer) (*GenesisBridgeEntry, error) {
+	it, err := GetLatestEntry(storer)
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		if bridge, ok := it.(*GenesisBridgeEntry); ok {
+			return bridge, nil
+		}
+
+		parent, err := GetParentForEntry(storer, it)
+		if err != nil {
+			if errors.Is(err, ErrRSLEntryNotFound) {
+				// Reached beginning of RSL — no bridge entry found
+				return nil, ErrRSLEntryNotFound
+			}
+			return nil, err
+		}
+		it = parent
+	}
+}
+
 // GetLatestReferenceUpdaterEntry returns the latest reference updater entry in
 // the local RSL that matches the specified conditions.
 func GetLatestReferenceUpdaterEntry(storer gitstore.Storer, opts ...GetLatestReferenceUpdaterEntryOption) (ReferenceUpdaterEntry, []*AnnotationEntry, error) {
