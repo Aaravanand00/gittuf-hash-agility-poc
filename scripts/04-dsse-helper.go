@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -42,6 +43,25 @@ type DSSEEnvelope struct {
 	PayloadType string          `json:"payloadType"`
 	Payload     string          `json:"payload"`
 	Signatures  []DSSESignature `json:"signatures"`
+}
+
+func pathWithinDir(dir, name string) (string, error) {
+	base, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("resolve base directory: %w", err)
+	}
+	target, err := filepath.Abs(name)
+	if err != nil {
+		return "", fmt.Errorf("resolve target path: %w", err)
+	}
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return "", fmt.Errorf("compare paths: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes directory %q", name, dir)
+	}
+	return target, nil
 }
 
 func main() {
@@ -190,16 +210,33 @@ func main() {
 			os.Exit(1)
 		}
 
+		sigOut, err := pathWithinDir(".", os.Args[3])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "invalid signature output path: %v\n", err)
+			os.Exit(1)
+		}
+		payloadOut, err := pathWithinDir(".", os.Args[4])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "invalid payload output path: %v\n", err)
+			os.Exit(1)
+		}
+
 		if len(env.Signatures) > 0 {
 			sigBytes, err := base64.StdEncoding.DecodeString(env.Signatures[0].Sig)
 			if err == nil {
-				_ = os.WriteFile(filepath.Clean(os.Args[3]), sigBytes, 0o600)
+				// #nosec G703 -- sigOut is constrained to the working directory.
+				if err := os.WriteFile(sigOut, sigBytes, 0o600); err != nil {
+					fmt.Fprintf(os.Stderr, "error writing signature: %v\n", err)
+				}
 			}
 		}
 
 		payloadBytes, err := base64.StdEncoding.DecodeString(env.Payload)
 		if err == nil {
-			_ = os.WriteFile(filepath.Clean(os.Args[4]), payloadBytes, 0o600)
+			// #nosec G703 -- payloadOut is constrained to the working directory.
+			if err := os.WriteFile(payloadOut, payloadBytes, 0o600); err != nil {
+				fmt.Fprintf(os.Stderr, "error writing payload: %v\n", err)
+			}
 		}
 	}
 }

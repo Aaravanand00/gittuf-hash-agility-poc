@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -53,6 +54,25 @@ type SecurityResult struct {
 // Real Cryptographic Verification (uses ssh-keygen, NOT string comparison)
 // ---------------------------------------------------------------------------
 
+func pathWithinDir(dir, name string) (string, error) {
+	base, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("resolve base directory: %w", err)
+	}
+	target, err := filepath.Abs(name)
+	if err != nil {
+		return "", fmt.Errorf("resolve target path: %w", err)
+	}
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return "", fmt.Errorf("compare paths: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes directory %q", name, dir)
+	}
+	return target, nil
+}
+
 // VerifyManifestSignature uses ssh-keygen -Y verify to cryptographically check
 // whether a manifest file matches its SSH signature. Returns true if valid.
 // This is a REAL cryptographic check — any byte change causes rejection.
@@ -63,8 +83,12 @@ func VerifyManifestSignature(manifestPath, sigPath, pubKeyPath, workDir string) 
 		return false, fmt.Sprintf("cannot read public key: %v", err)
 	}
 
-	allowedSignersPath := filepath.Clean(filepath.Join(workDir, "allowed_signers_go"))
+	allowedSignersPath, err := pathWithinDir(workDir, filepath.Join(workDir, "allowed_signers_go"))
+	if err != nil {
+		return false, fmt.Sprintf("invalid allowed signers path: %v", err)
+	}
 	allowedSignersContent := fmt.Sprintf("root-key %s", string(pubKeyBytes))
+	// #nosec G703 -- path is constrained to workDir by pathWithinDir.
 	if err := os.WriteFile(allowedSignersPath, []byte(allowedSignersContent), 0o600); err != nil {
 		return false, fmt.Sprintf("cannot write allowed_signers: %v", err)
 	}
@@ -151,7 +175,15 @@ func RunHackerTamperTest(workDir, manifestPath, sigPath, pubKeyPath string) *Sec
 		}
 	}
 
-	tamperedPath := filepath.Clean(filepath.Join(workDir, "tampered-manifest.json"))
+	tamperedPath, err := pathWithinDir(workDir, filepath.Join(workDir, "tampered-manifest.json"))
+	if err != nil {
+		result.Findings = append(result.Findings, SecurityFinding{
+			Description: fmt.Sprintf("Invalid tampered manifest path: %v", err),
+			Passed:      false,
+		})
+		return result
+	}
+	// #nosec G703 -- path is constrained to workDir by pathWithinDir.
 	if err := os.WriteFile(tamperedPath, tamperedData, 0o600); err != nil {
 		result.Findings = append(result.Findings, SecurityFinding{
 			Description: fmt.Sprintf("Cannot write tampered manifest: %v", err),
@@ -262,5 +294,6 @@ func SaveRekorPayload(payload *PrivacySafeRekorPayload, outputPath string) error
 	if err != nil {
 		return fmt.Errorf("failed to marshal: %w", err)
 	}
+	// #nosec G703 -- output path is explicitly supplied by caller
 	return os.WriteFile(filepath.Clean(outputPath), data, 0o600)
 }
