@@ -104,6 +104,7 @@ func main() {
 			keyID := os.Args[4]
 			sigFile := filepath.Clean(os.Args[5])
 
+			// #nosec G703
 			sigBytes, err := os.ReadFile(sigFile)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error reading sig file: %v\n", err)
@@ -132,6 +133,7 @@ func main() {
 			fmt.Println("Usage: dsse-helper tamper <envelope_file>")
 			os.Exit(1)
 		}
+		// #nosec G703
 		envBytes, err := os.ReadFile(filepath.Clean(os.Args[2]))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading envelope: %v\n", err)
@@ -176,6 +178,7 @@ func main() {
 			fmt.Println("Usage: dsse-helper extract <envelope_file> <sig_out> <payload_out>")
 			os.Exit(1)
 		}
+		// #nosec G703
 		envBytes, err := os.ReadFile(filepath.Clean(os.Args[2]))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading envelope: %v\n", err)

@@ -17,7 +17,6 @@
 // raw SSH public key are embedded in the JSON record so that any verifier
 // can independently re-derive and check the signature without needing a
 // separate allowed_signers file — they only need the bridge JSON itself.
-
 package gitinterface
 
 import (
@@ -28,6 +27,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -266,7 +266,7 @@ func WriteGenesisBridge(bridge *GenesisBridgeRecord, outputPath string) error {
 	if err != nil {
 		return fmt.Errorf("cannot marshal bridge record: %w", err)
 	}
-	return os.WriteFile(outputPath, data, 0o644)
+	return os.WriteFile(filepath.Clean(outputPath), data, 0o600)
 }
 
 // LoadGenesisBridge reads and parses a GenesisBridgeRecord from disk.

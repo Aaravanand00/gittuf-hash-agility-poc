@@ -37,7 +37,7 @@ func TestComputeContentSHA256(t *testing.T) {
 
 	// Must be lowercase hex only
 	for _, c := range digest {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			t.Errorf("digest contains non-hex character: %c", c)
 		}
 	}

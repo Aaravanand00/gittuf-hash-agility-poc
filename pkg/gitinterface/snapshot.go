@@ -16,7 +16,6 @@
 //
 // The resulting ContentSHA256 is a single deterministic hash that detects
 // any object-level tampering, even if SHA-1 collisions are exploited.
-
 package gitinterface
 
 import (
@@ -28,6 +27,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -126,7 +126,7 @@ func (r *Repository) ComputeContentSHA256() (string, error) {
 
 		// Compute SHA-256 over canonical Git object: "<type> <size>\0<payload>"
 		h := sha256.New()
-		h.Write([]byte(fmt.Sprintf("%s %d\x00", parts[1], size)))
+		fmt.Fprintf(h, "%s %d\x00", parts[1], size)
 		h.Write(payload)
 		digest := hex.EncodeToString(h.Sum(nil))
 		objectDigests = append(objectDigests, digest)
@@ -267,7 +267,7 @@ func WriteSnapshotManifest(manifest *SnapshotManifest, outputPath string) error 
 	if err != nil {
 		return fmt.Errorf("cannot marshal snapshot manifest: %w", err)
 	}
-	return os.WriteFile(outputPath, data, 0o644)
+	return os.WriteFile(filepath.Clean(outputPath), data, 0o600)
 }
 
 // LoadSnapshotManifest reads and deserialises a snapshot manifest from disk.
